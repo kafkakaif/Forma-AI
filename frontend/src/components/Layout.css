@@ -1,0 +1,168 @@
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f6f7ff;
+}
+
+/* ================= SIDEBAR ================= */
+
+.app-sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+
+  display: flex;
+  flex-direction: column;
+
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+
+  z-index: 100;
+}
+
+/* BRAND */
+
+.sidebar-brand {
+  height: 76px;
+
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  padding: 0 24px;
+
+  font-size: 19px;
+  font-weight: 700;
+  color: #172033;
+}
+
+.sidebar-logo {
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  background: #5146e5;
+  color: white;
+
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* MAIN NAV */
+
+.sidebar-main-nav {
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sidebar-link {
+  width: 100%;
+  height: 45px;
+
+  display: flex;
+  align-items: center;
+  gap: 13px;
+
+  padding: 0 14px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: #667085;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  text-decoration: none;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.sidebar-link:hover {
+  background: #f3f4ff;
+  color: #5146e5;
+}
+
+.sidebar-link.active {
+  background: #eeedff;
+  color: #5146e5;
+  font-weight: 600;
+}
+
+/* BOTTOM */
+
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 14px;
+
+  border-top: 1px solid #eeeeee;
+
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-button {
+  font-family: inherit;
+  text-align: left;
+}
+
+.logout-link:hover {
+  color: #dc2626;
+  background: #fff1f2;
+}
+
+/* ================= MAIN ================= */
+
+.app-main {
+  margin-left: 240px;
+
+  width: calc(100% - 240px);
+  min-height: 100vh;
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 800px) {
+
+  .app-sidebar {
+    width: 72px;
+  }
+
+  .sidebar-brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sidebar-brand span {
+    display: none;
+  }
+
+  .sidebar-link {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sidebar-link span {
+    display: none;
+  }
+
+  .app-main {
+    margin-left: 72px;
+    width: calc(100% - 72px);
+  }
+}
