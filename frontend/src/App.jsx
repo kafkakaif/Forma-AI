@@ -7,6 +7,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import Templates from "./pages/Templates";
+import Submissions from "./pages/Submissions";
 
 import Layout from "./components/Layout";
 
@@ -60,20 +62,12 @@ function App() {
 
           <Route
             path="/templates"
-            element={
-              <div style={{ padding: "40px" }}>
-                Templates page will be connected here.
-              </div>
-            }
+            element={<Templates />}
           />
 
           <Route
             path="/submissions"
-            element={
-              <div style={{ padding: "40px" }}>
-                Submissions page will be connected here.
-              </div>
-            }
+            element={<Submissions />}
           />
 
           <Route
