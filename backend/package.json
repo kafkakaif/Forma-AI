@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "seed": "node src/seed/seedInsuranceClaim.js"
+    "seed": "node src/seed/seedInsuranceClaim.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
