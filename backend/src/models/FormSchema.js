@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { FIELD_TYPES, validateFormDefinition } from '../../../shared/rules.js';
+import { FIELD_TYPES, validateFormDefinition } from '../shared/rules.js';
 
 const fieldSchema = new mongoose.Schema(
   {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { FormSchema } from '../models/FormSchema.js';
-import { validateSubmission } from '../../../shared/rules.js';
+import { validateSubmission } from '../shared/rules.js';
 
 const router = Router();
 

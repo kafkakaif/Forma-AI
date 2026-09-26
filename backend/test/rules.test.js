@@ -5,7 +5,7 @@ import {
   getVisibleFields,
   validateFormDefinition,
   validateSubmission,
-} from '../../shared/rules.js';
+} from '../src/shared/rules.js';
 import { autoClaim, healthIntake } from '../src/seed/forms.js';
 
 const names = (fields) => fields.map((f) => f.name);
