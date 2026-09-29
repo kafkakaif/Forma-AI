@@ -16,8 +16,6 @@
   z-index: 100;
 }
 
-/* BRAND */
-
 .brand {
   display: flex;
   align-items: center;
@@ -46,15 +44,11 @@
 
   font-weight: 700;
 }
-
-/* NAV */
-
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
-
 .nav-item {
   width: 100%;
 
@@ -91,9 +85,6 @@
   color: #4f46e5;
   font-weight: 600;
 }
-
-/* BOTTOM */
-
 .sidebar-bottom {
   margin-top: auto;
 

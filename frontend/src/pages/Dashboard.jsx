@@ -1,4 +1,6 @@
 import React from "react";
+import DynamicForm from "../components/DynamicForm";
+import insuranceClaimSchema from "../data/insuranceClaimSchema";
 import {
   FileText,
   Plus,

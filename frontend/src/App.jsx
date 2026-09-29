@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
+import InsuranceClaim from "./pages/InsuranceClaim";
 
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
@@ -25,6 +26,7 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         <Route path="/signup" element={<Signup />} />
+        <Route path="/insurance-claim" element={<InsuranceClaim />} />
 
         <Route
           path="/forgot-password"
