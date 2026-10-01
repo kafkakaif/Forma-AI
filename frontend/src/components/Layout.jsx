@@ -6,6 +6,7 @@ import {
   LayoutTemplate,
   Send,
   BarChart3,
+  Sparkles,
   User,
   Settings,
   HelpCircle,
@@ -39,6 +40,24 @@ const Layout = () => {
           <NavLink to="/dashboard" className="sidebar-link">
             <Home size={19} />
             <span>Dashboard</span>
+          </NavLink>
+
+          <NavLink to="/ai-input" className="sidebar-link" style={{ position: "relative" }}>
+            <Sparkles size={19} color="#6366f1" />
+            <span>AI Generator</span>
+            <span
+              style={{
+                marginLeft: "auto",
+                background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                color: "#ffffff",
+                fontSize: 10,
+                fontWeight: 700,
+                padding: "2px 6px",
+                borderRadius: 10,
+              }}
+            >
+              NEW
+            </span>
           </NavLink>
 
           <NavLink to="/forms" className="sidebar-link">

@@ -1,503 +1,2149 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Sparkles,
+  Plus,
+  Trash2,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  CheckCircle2,
+  Sliders,
+  Eye,
+  Code2,
+  ArrowRight,
+  RotateCcw,
+  CloudUpload,
+  Layers,
+  ListFilter,
+  Check,
+  Download,
+  Info,
+} from "lucide-react";
+import DynamicForm from "../components/DynamicForm";
+import { saveFormToBackend } from "../services/formApi";
+import "./AIInput.css";
+
+// Quick regex presets for Task 3: Validation Editor
+const REGEX_PRESETS = [
+  { label: "10-digit Phone", pattern: "^[0-9]{10}$", message: "Enter a valid 10-digit phone number" },
+  { label: "ZIP / Postal Code", pattern: "^\\d{5}(-\\d{4})?$", message: "Enter a valid 5-digit ZIP code" },
+  { label: "Alphanumeric", pattern: "^[a-zA-Z0-9_]+$", message: "Only letters, numbers, and underscores allowed" },
+  { label: "URL", pattern: "^https?:\\/\\/.+", message: "Enter a valid web URL starting with https://" },
+];
+
+// Option presets for Task 2: Field Options
+const OPTION_PRESETS = {
+  yesNo: [
+    { label: "Yes", value: "yes" },
+    { label: "No", value: "no" },
+  ],
+  priority: [
+    { label: "Low", value: "low" },
+    { label: "Medium", value: "medium" },
+    { label: "High", value: "high" },
+    { label: "Urgent", value: "urgent" },
+  ],
+  satisfaction: [
+    { label: "Very Satisfied", value: "very_satisfied" },
+    { label: "Satisfied", value: "satisfied" },
+    { label: "Neutral", value: "neutral" },
+    { label: "Dissatisfied", value: "dissatisfied" },
+  ],
+  gender: [
+    { label: "Male", value: "male" },
+    { label: "Female", value: "female" },
+    { label: "Other / Prefer not to say", value: "other" },
+  ],
+};
 
 function AIInput() {
   const navigate = useNavigate();
+
+  // Generator State
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [generationStep, setGenerationStep] = useState(0);
+  const [promptError, setPromptError] = useState(null);
+  const [generationError, setGenerationError] = useState(null);
+
+  // Form Editor State
   const [generatedForm, setGeneratedForm] = useState(null);
+  const [expandedFieldId, setExpandedFieldId] = useState(null);
+  const [activeTab, setActiveTab] = useState("editor"); // 'editor' | 'preview' | 'json'
 
-  // -----------------------------------
-  // TEMPORARY FRONTEND FORM GENERATION
-  // -----------------------------------
+  // Backend API Integration State
+  const [apiSaving, setApiSaving] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [apiSuccess, setApiSuccess] = useState(null);
 
+  // Toasts
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = "success") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
+
+  // ----------------------------------------------------
+  // INTELLIGENT MULTI-DOMAIN FORM GENERATOR
+  // ----------------------------------------------------
   const generateFormSchema = (userPrompt) => {
     const text = userPrompt.toLowerCase();
 
-    // VEHICLE / INSURANCE FORM
-    if (text.includes("vehicle") || text.includes("insurance")) {
+    // 1. VEHICLE / AUTO INSURANCE (Multi-Level Logic)
+    if (text.includes("vehicle") || text.includes("insurance") || text.includes("car") || text.includes("auto")) {
       return {
-        id: "vehicle-insurance",
+        id: "vehicle-insurance-" + Date.now().toString(36),
         title: "Vehicle Insurance Claim Form",
-        description: "Generated from your description.",
-
+        description: "Submit details regarding your vehicle accident or insurance claim.",
+        category: "Insurance",
         fields: [
           {
             id: "fullName",
             label: "Full Name",
             type: "text",
             required: true,
+            placeholder: "e.g. Jane Doe",
+            minLength: 2,
+            maxLength: 50,
           },
-
           {
             id: "email",
-            label: "Email",
+            label: "Email Address",
             type: "email",
             required: true,
+            placeholder: "jane@example.com",
           },
-
           {
-            id: "vehicleRegistration",
-            label: "Vehicle Registration Number",
+            id: "phone",
+            label: "Contact Phone Number",
             type: "text",
             required: true,
+            placeholder: "10-digit number",
+            pattern: "^[0-9]{10}$",
+            validation: { message: "Please enter a valid 10-digit phone number" },
           },
-
           {
             id: "incidentDate",
             label: "Date of Incident",
             type: "date",
             required: true,
           },
-
           {
-  id: "vehicleDamaged",
-  label: "Was the vehicle damaged?",
-  type: "radio",
-  required: true,
-
-  options: [
-    {
-      label: "Yes",
-      value: "yes",
-    },
-    {
-      label: "No",
-      value: "no",
-    },
-  ],
-},
-
+            id: "vehicleRegistration",
+            label: "Vehicle Registration Number",
+            type: "text",
+            required: true,
+            placeholder: "e.g. AP01AB1234",
+          },
+          // LEVEL 1: accidentOccurred
           {
-            id: "description",
-            label: "Describe the incident",
+            id: "accidentOccurred",
+            label: "Did a collision or accident occur?",
+            type: "radio",
+            required: true,
+            options: [
+              { label: "Yes", value: "yes" },
+              { label: "No", value: "no" },
+            ],
+          },
+          // LEVEL 2: vehicleDamaged (depends on accidentOccurred == "yes")
+          {
+            id: "vehicleDamaged",
+            label: "Was there visible damage to the vehicle?",
+            type: "radio",
+            required: true,
+            options: [
+              { label: "Yes", value: "yes" },
+              { label: "No", value: "no" },
+            ],
+            showIf: {
+              field: "accidentOccurred",
+              operator: "equals",
+              value: "yes",
+            },
+          },
+          // LEVEL 3: damageType (depends on vehicleDamaged == "yes")
+          {
+            id: "damageType",
+            label: "Severity of Damage",
+            type: "select",
+            required: true,
+            options: [
+              { label: "Minor Scratches & Dents", value: "minor" },
+              { label: "Moderate Body Damage", value: "moderate" },
+              { label: "Severe / Total Loss", value: "severe" },
+            ],
+            showIf: {
+              field: "vehicleDamaged",
+              operator: "equals",
+              value: "yes",
+            },
+          },
+          // LEVEL 4: repairEstimate (depends on severe or moderate)
+          {
+            id: "repairEstimate",
+            label: "Estimated Repair Cost ($)",
+            type: "number",
+            required: false,
+            placeholder: "Enter estimated amount",
+            min: 50,
+            max: 100000,
+            showIf: {
+              field: "damageType",
+              operator: "in",
+              value: ["moderate", "severe"],
+            },
+          },
+          // LEVEL 5: policeReportFiled (multi-condition: accidentOccurred == "yes" AND vehicleDamaged == "yes")
+          {
+            id: "policeReportFiled",
+            label: "Was an official police report filed?",
+            type: "radio",
+            required: true,
+            options: [
+              { label: "Yes, report filed", value: "yes" },
+              { label: "No report filed", value: "no" },
+            ],
+            showIf: {
+              operator: "and",
+              conditions: [
+                { field: "accidentOccurred", operator: "equals", value: "yes" },
+                { field: "vehicleDamaged", operator: "equals", value: "yes" },
+              ],
+            },
+          },
+          {
+            id: "policeReportNumber",
+            label: "Police Report Number",
+            type: "text",
+            required: true,
+            placeholder: "e.g. PR-98214",
+            showIf: {
+              field: "policeReportFiled",
+              operator: "equals",
+              value: "yes",
+            },
+          },
+          {
+            id: "incidentDescription",
+            label: "Detailed Incident Description",
             type: "textarea",
             required: true,
+            placeholder: "Please describe what happened in detail...",
+            minLength: 10,
           },
         ],
       };
     }
 
-    // MEDICAL FORM
-    if (text.includes("medical")) {
+    // 2. MEDICAL / HEALTHCARE CLAIM
+    if (text.includes("medical") || text.includes("health") || text.includes("patient") || text.includes("hospital")) {
       return {
-        id: "medical-claim",
-        title: "Medical Claim Form",
-        description: "Generated from your description.",
-
+        id: "medical-claim-" + Date.now().toString(36),
+        title: "Medical & Health Claim Form",
+        description: "Intake form for patient treatment and medical reimbursement requests.",
+        category: "Healthcare",
         fields: [
           {
             id: "patientName",
-            label: "Patient Name",
+            label: "Patient Full Name",
             type: "text",
             required: true,
+            placeholder: "Enter patient full name",
+            minLength: 2,
           },
-
           {
-            id: "email",
-            label: "Email",
-            type: "email",
+            id: "patientDob",
+            label: "Date of Birth",
+            type: "date",
             required: true,
           },
-
+          {
+            id: "email",
+            label: "Patient Contact Email",
+            type: "email",
+            required: true,
+            placeholder: "patient@example.com",
+          },
           {
             id: "treatmentDate",
             label: "Date of Treatment",
             type: "date",
             required: true,
           },
-
           {
             id: "treatmentType",
-            label: "Treatment Type",
+            label: "Treatment Classification",
             type: "select",
             required: true,
+            options: [
+              { label: "Outpatient Consultation", value: "outpatient" },
+              { label: "Emergency Room Visit", value: "emergency" },
+              { label: "Inpatient Hospitalization", value: "inpatient" },
+              { label: "Prescription & Diagnostics", value: "pharmacy" },
+            ],
           },
-
+          {
+            id: "hospitalStayDays",
+            label: "Number of Days Hospitalized",
+            type: "number",
+            required: true,
+            min: 1,
+            max: 365,
+            placeholder: "e.g. 3",
+            showIf: {
+              field: "treatmentType",
+              operator: "equals",
+              value: "inpatient",
+            },
+          },
+          {
+            id: "hasSurgery",
+            label: "Was a surgical procedure performed?",
+            type: "radio",
+            required: true,
+            options: [
+              { label: "Yes", value: "yes" },
+              { label: "No", value: "no" },
+            ],
+            showIf: {
+              field: "treatmentType",
+              operator: "equals",
+              value: "inpatient",
+            },
+          },
           {
             id: "medicalDescription",
-            label: "Medical Description",
+            label: "Diagnosis & Symptoms Description",
             type: "textarea",
+            required: true,
+            placeholder: "Describe the primary diagnosis and treatment rendered...",
+          },
+          {
+            id: "agreeHipaa",
+            label: "I certify that all medical information provided is accurate and consent to verification.",
+            type: "checkbox",
             required: true,
           },
         ],
       };
     }
 
-    // PROPERTY FORM
-    if (text.includes("property")) {
+    // 3. PROPERTY DAMAGE CLAIM
+    if (text.includes("property") || text.includes("home") || text.includes("damage") || text.includes("building")) {
       return {
-        id: "property-damage",
+        id: "property-damage-" + Date.now().toString(36),
         title: "Property Damage Claim Form",
-        description: "Generated from your description.",
-
+        description: "Assessment and reimbursement request for residential or commercial property damage.",
+        category: "Real Estate",
         fields: [
           {
             id: "ownerName",
-            label: "Owner Name",
+            label: "Property Owner / Policyholder Name",
             type: "text",
             required: true,
+            placeholder: "e.g. Robert Smith",
           },
-
-          {
-            id: "email",
-            label: "Email",
-            type: "email",
-            required: true,
-          },
-
           {
             id: "propertyAddress",
-            label: "Property Address",
+            label: "Property Physical Address",
             type: "text",
             required: true,
+            placeholder: "123 Main St, Suite 400, City, State",
           },
-
           {
-            id: "damageDate",
-            label: "Date of Damage",
+            id: "propertyType",
+            label: "Property Type",
+            type: "select",
+            required: true,
+            options: [
+              { label: "Single Family Home", value: "residential_single" },
+              { label: "Apartment / Condominium", value: "residential_multi" },
+              { label: "Commercial Office / Retail", value: "commercial" },
+              { label: "Industrial / Warehouse", value: "industrial" },
+            ],
+          },
+          {
+            id: "incidentDate",
+            label: "Date When Damage Occurred",
             type: "date",
             required: true,
           },
-
           {
-            id: "damageType",
-            label: "Damage Type",
+            id: "damageCause",
+            label: "Cause of Damage",
             type: "select",
             required: true,
+            options: [
+              { label: "Water / Plumbing Leak", value: "water" },
+              { label: "Fire / Smoke", value: "fire" },
+              { label: "Storm / Natural Disaster", value: "storm" },
+              { label: "Vandalism / Theft", value: "vandalism" },
+              { label: "Other", value: "other" },
+            ],
           },
-
+          {
+            id: "uninhabitable",
+            label: "Is the property currently uninhabitable or unusable?",
+            type: "radio",
+            required: true,
+            options: [
+              { label: "Yes, requires temporary relocation", value: "yes" },
+              { label: "No, partially usable", value: "no" },
+            ],
+          },
+          {
+            id: "emergencyRelocationCost",
+            label: "Estimated Daily Relocation Cost ($)",
+            type: "number",
+            required: false,
+            min: 0,
+            showIf: {
+              field: "uninhabitable",
+              operator: "equals",
+              value: "yes",
+            },
+          },
           {
             id: "damageDescription",
-            label: "Describe the Damage",
+            label: "Detailed Description of Damage",
             type: "textarea",
             required: true,
+            placeholder: "Explain the extent of physical damage and affected rooms...",
           },
         ],
       };
     }
 
-    // DEFAULT FORM
-    return {
-      id: "generated-form",
-      title: "Generated Form",
-      description:
-        "A form structure was generated from your description.",
+    // 4. EVENT REGISTRATION / RSVP
+    if (text.includes("event") || text.includes("rsvp") || text.includes("conference") || text.includes("ticket")) {
+      return {
+        id: "event-registration-" + Date.now().toString(36),
+        title: "Event Registration & RSVP Form",
+        description: "Register attendees, manage dietary preferences, and track ticket tiers.",
+        category: "Events",
+        fields: [
+          {
+            id: "attendeeName",
+            label: "Attendee Full Name",
+            type: "text",
+            required: true,
+            placeholder: "e.g. Alex Morgan",
+          },
+          {
+            id: "email",
+            label: "Work Email Address",
+            type: "email",
+            required: true,
+            placeholder: "alex@company.com",
+          },
+          {
+            id: "ticketTier",
+            label: "Ticket Tier",
+            type: "select",
+            required: true,
+            options: [
+              { label: "General Admission ($99)", value: "general" },
+              { label: "VIP Pass ($249)", value: "vip" },
+              { label: "Workshop Only ($49)", value: "workshop" },
+            ],
+          },
+          {
+            id: "vipDinner",
+            label: "Will you attend the exclusive VIP Gala Dinner?",
+            type: "radio",
+            required: true,
+            options: [
+              { label: "Yes, I will attend", value: "yes" },
+              { label: "No, cannot attend", value: "no" },
+            ],
+            showIf: {
+              field: "ticketTier",
+              operator: "equals",
+              value: "vip",
+            },
+          },
+          {
+            id: "hasDietaryNeeds",
+            label: "Do you have any dietary restrictions?",
+            type: "radio",
+            required: true,
+            options: [
+              { label: "Yes", value: "yes" },
+              { label: "No restrictions", value: "no" },
+            ],
+          },
+          {
+            id: "dietaryDetails",
+            label: "Please specify dietary requirements",
+            type: "text",
+            required: true,
+            placeholder: "e.g. Gluten-free, Vegan, Nut allergy",
+            showIf: {
+              field: "hasDietaryNeeds",
+              operator: "equals",
+              value: "yes",
+            },
+          },
+          {
+            id: "specialAssistance",
+            label: "Additional Notes or Accessibility Requests",
+            type: "textarea",
+            required: false,
+          },
+        ],
+      };
+    }
 
+    // 5. GENERAL INTELLIGENT FALLBACK
+    const titleWords = userPrompt.trim().split(" ").slice(0, 5).join(" ");
+    const generatedTitle =
+      titleWords.charAt(0).toUpperCase() + titleWords.slice(1) + (titleWords.toLowerCase().includes("form") ? "" : " Form");
+
+    return {
+      id: "custom-form-" + Date.now().toString(36),
+      title: generatedTitle,
+      description: `Custom form dynamically structured from prompt: "${userPrompt.slice(0, 100)}"`,
+      category: "Custom",
       fields: [
         {
           id: "fullName",
           label: "Full Name",
           type: "text",
           required: true,
+          placeholder: "Enter full name",
+          minLength: 2,
         },
-
         {
           id: "email",
-          label: "Email",
+          label: "Email Address",
           type: "email",
           required: true,
+          placeholder: "name@example.com",
         },
-
         {
-          id: "date",
-          label: "Date",
-          type: "date",
+          id: "categorySelection",
+          label: "Primary Inquiry Type",
+          type: "select",
           required: true,
+          options: [
+            { label: "General Information", value: "general" },
+            { label: "Urgent Support", value: "support" },
+            { label: "Billing & Account", value: "billing" },
+          ],
         },
-
         {
-          id: "additionalInformation",
-          label: "Additional Information",
-          type: "textarea",
+          id: "urgencyLevel",
+          label: "Is this matter time-sensitive?",
+          type: "radio",
+          required: true,
+          options: [
+            { label: "Yes, requires priority review", value: "yes" },
+            { label: "Standard turnaround is acceptable", value: "no" },
+          ],
+          showIf: {
+            field: "categorySelection",
+            operator: "equals",
+            value: "support",
+          },
+        },
+        {
+          id: "submissionDate",
+          label: "Preferred Follow-up Date",
+          type: "date",
           required: false,
+        },
+        {
+          id: "detailedMessage",
+          label: "Detailed Message / Notes",
+          type: "textarea",
+          required: true,
+          placeholder: "Enter additional details...",
+          minLength: 5,
         },
       ],
     };
   };
 
-  // -----------------------------------
-  // GENERATE FORM
-  // -----------------------------------
-
+  // ----------------------------------------------------
+  // GENERATION HANDLER WITH ANIMATED STEPS (TASK 5 & 6)
+  // ----------------------------------------------------
   const handleGenerate = () => {
-    if (!prompt.trim()) {
+    setPromptError(null);
+    setGenerationError(null);
+
+    // Empty Prompt scenario (Task 5)
+    if (!prompt || !prompt.trim()) {
+      setPromptError("Please describe the form you want to create in the prompt box above.");
+      return;
+    }
+
+    // Invalid / Too short scenario (Task 5)
+    if (prompt.trim().length < 4) {
+      setPromptError("Prompt is too brief. Please enter at least 4 characters describing your form needs.");
       return;
     }
 
     setLoading(true);
-    setGeneratedForm(null);
+    setGenerationStep(1);
 
+    // Step 1: Analyzing
     setTimeout(() => {
-      const result = generateFormSchema(prompt);
+      setGenerationStep(2);
+    }, 400);
 
-      setGeneratedForm(result);
-      setLoading(false);
-    }, 1200);
-  };
+    // Step 2: Synthesizing
+    setTimeout(() => {
+      setGenerationStep(3);
+    }, 850);
 
-  // -----------------------------------
-  // EXAMPLE PROMPT
-  // -----------------------------------
-
-  const handleExample = (example) => {
-    setPrompt(example);
-    setGeneratedForm(null);
-  };
-
-  // -----------------------------------
-  // UPDATE FIELD
-  // -----------------------------------
-
-  const updateField = (fieldId, key, value) => {
-    setGeneratedForm((current) => {
-      if (!current) {
-        return current;
+    // Step 3: Finalizing schema
+    setTimeout(() => {
+      try {
+        const schema = generateFormSchema(prompt);
+        setGeneratedForm(schema);
+        setLoading(false);
+        setGenerationStep(4);
+        setActiveTab("editor");
+        addToast(`Form "${schema.title}" generated successfully with ${schema.fields.length} fields!`, "success");
+      } catch (err) {
+        setLoading(false);
+        setGenerationError("Failed to generate form schema: " + err.message);
       }
+    }, 1300);
+  };
 
+  const handleExamplePrompt = (exampleText) => {
+    setPrompt(exampleText);
+    setPromptError(null);
+  };
+
+  // ----------------------------------------------------
+  // TASK 1: AI FORM EDITOR (Add, Edit, Type, Remove, Req)
+  // ----------------------------------------------------
+
+  const updateFormMeta = (key, value) => {
+    setGeneratedForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const addField = () => {
+    const newId = "field_" + Date.now().toString(36);
+    const newField = {
+      id: newId,
+      label: `Field ${(generatedForm?.fields?.length || 0) + 1}`,
+      type: "text",
+      required: false,
+      placeholder: "",
+      helpText: "",
+    };
+
+    setGeneratedForm((prev) => ({
+      ...prev,
+      fields: [...(prev?.fields || []), newField],
+    }));
+    setExpandedFieldId(newId);
+    addToast("New field added! Configure its properties below.", "info");
+  };
+
+  const updateFieldProperty = (fieldId, propKey, propValue) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
       return {
-        ...current,
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
 
-        fields: current.fields.map((field) =>
-          field.id === fieldId
-            ? {
-                ...field,
-                [key]: value,
-              }
-            : field
-        ),
+          const updated = { ...f, [propKey]: propValue };
+
+          // If type changes to select or radio and options are empty, initialize default options (Task 2)
+          if (propKey === "type" && (propValue === "select" || propValue === "radio") && (!f.options || f.options.length === 0)) {
+            updated.options = [
+              { label: "Option 1", value: "option_1" },
+              { label: "Option 2", value: "option_2" },
+            ];
+          }
+
+          return updated;
+        }),
       };
     });
   };
-
-  // -----------------------------------
-  // DELETE FIELD
-  // -----------------------------------
 
   const deleteField = (fieldId) => {
-    setGeneratedForm((current) => {
-      if (!current) {
-        return current;
-      }
-
+    const deletedField = generatedForm?.fields?.find((f) => f.id === fieldId);
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
       return {
-        ...current,
+        ...prev,
+        fields: prev.fields.filter((f) => f.id !== fieldId),
+      };
+    });
+    addToast(`Removed field "${deletedField?.label || fieldId}"`, "info");
+  };
 
-        fields: current.fields.filter(
-          (field) => field.id !== fieldId
-        ),
+  const duplicateField = (fieldId) => {
+    const sourceField = generatedForm?.fields?.find((f) => f.id === fieldId);
+    if (!sourceField) return;
+
+    const newId = `${sourceField.id}_copy_${Date.now().toString(36)}`;
+    const copy = {
+      ...JSON.parse(JSON.stringify(sourceField)),
+      id: newId,
+      label: `${sourceField.label} (Copy)`,
+    };
+
+    const index = generatedForm.fields.findIndex((f) => f.id === fieldId);
+    const newFields = [...generatedForm.fields];
+    newFields.splice(index + 1, 0, copy);
+
+    setGeneratedForm((prev) => ({ ...prev, fields: newFields }));
+    setExpandedFieldId(newId);
+    addToast(`Duplicated field "${sourceField.label}"`, "success");
+  };
+
+  const moveField = (fieldId, direction) => {
+    const fields = [...(generatedForm?.fields || [])];
+    const index = fields.findIndex((f) => f.id === fieldId);
+    if (index === -1) return;
+
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= fields.length) return;
+
+    const [moved] = fields.splice(index, 1);
+    fields.splice(targetIndex, 0, moved);
+
+    setGeneratedForm((prev) => ({ ...prev, fields }));
+  };
+
+  // ----------------------------------------------------
+  // TASK 2: FIELD OPTIONS EDITOR (Add, Edit, Remove, Presets)
+  // ----------------------------------------------------
+
+  const addOption = (fieldId) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
+          const currentOpts = f.options || [];
+          const num = currentOpts.length + 1;
+          return {
+            ...f,
+            options: [...currentOpts, { label: `Option ${num}`, value: `option_${num}` }],
+          };
+        }),
       };
     });
   };
 
-  // -----------------------------------
-  // APPLY FORM
-  // -----------------------------------
+  const updateOption = (fieldId, optionIndex, key, val) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
+          const opts = [...(f.options || [])];
+          const curr = opts[optionIndex] || {};
+          const updatedOpt = { ...curr, [key]: val };
+
+          // If updating label, auto-generate value if value was empty or previously matching
+          if (key === "label" && (!curr.value || curr.value === curr.label?.toLowerCase().replace(/\s+/g, "_"))) {
+            updatedOpt.value = val.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+          }
+
+          opts[optionIndex] = updatedOpt;
+          return { ...f, options: opts };
+        }),
+      };
+    });
+  };
+
+  const removeOption = (fieldId, optionIndex) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
+          const opts = f.options || [];
+          if (opts.length <= 1) return f; // Keep at least one option
+          return {
+            ...f,
+            options: opts.filter((_, idx) => idx !== optionIndex),
+          };
+        }),
+      };
+    });
+  };
+
+  const applyOptionPreset = (fieldId, presetKey) => {
+    const preset = OPTION_PRESETS[presetKey];
+    if (!preset) return;
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
+          return { ...f, options: JSON.parse(JSON.stringify(preset)) };
+        }),
+      };
+    });
+    addToast("Option preset applied!", "info");
+  };
+
+  // ----------------------------------------------------
+  // TASK 3: VALIDATION EDITOR (Min/Max, Regex, Email, Number)
+  // ----------------------------------------------------
+
+  const updateValidation = (fieldId, valKey, valValue) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
+          const validationObj = { ...(f.validation || {}), [valKey]: valValue };
+          // If clearing, delete empty key
+          if (valValue === "" || valValue === undefined) {
+            delete validationObj[valKey];
+          }
+          return { ...f, validation: validationObj };
+        }),
+      };
+    });
+  };
+
+  const applyRegexPreset = (fieldId, preset) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
+          return {
+            ...f,
+            pattern: preset.pattern,
+            validation: {
+              ...(f.validation || {}),
+              pattern: preset.pattern,
+              message: preset.message,
+            },
+          };
+        }),
+      };
+    });
+    addToast(`Applied regex preset: ${preset.label}`, "info");
+  };
+
+  // ----------------------------------------------------
+  // TASK 4: CONDITIONAL LOGIC EDITOR (showIf, Multi-level)
+  // ----------------------------------------------------
+
+  const toggleConditionalLogic = (fieldId) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f, idx) => {
+          if (f.id !== fieldId) return f;
+          if (f.showIf) {
+            const { showIf: _removed, ...rest } = f;
+            return rest;
+          }
+          // Default to first preceding field
+          const preceding = prev.fields.slice(0, idx);
+          const firstPreceding = preceding[preceding.length - 1];
+          return {
+            ...f,
+            showIf: {
+              field: firstPreceding ? firstPreceding.id : "",
+              operator: "equals",
+              value: firstPreceding?.options?.[0]?.value || "yes",
+            },
+          };
+        }),
+      };
+    });
+  };
+
+  const updateSingleCondition = (fieldId, key, value) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
+          const currentShowIf = f.showIf || { field: "", operator: "equals", value: "" };
+          return {
+            ...f,
+            showIf: {
+              ...currentShowIf,
+              [key]: value,
+            },
+          };
+        }),
+      };
+    });
+  };
+
+  // Compound multi-level logic: switch mode (single vs compound)
+  const toggleConditionMode = (fieldId, mode) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f, idx) => {
+          if (f.id !== fieldId) return f;
+          const preceding = prev.fields.slice(0, idx);
+          const dep = preceding[0]?.id || "";
+
+          if (mode === "compound") {
+            return {
+              ...f,
+              showIf: {
+                operator: "and",
+                conditions: [
+                  { field: dep, operator: "equals", value: "yes" },
+                  { field: dep, operator: "equals", value: "no" },
+                ],
+              },
+            };
+          } else {
+            return {
+              ...f,
+              showIf: {
+                field: dep,
+                operator: "equals",
+                value: "yes",
+              },
+            };
+          }
+        }),
+      };
+    });
+  };
+
+  const updateCompoundConditionRow = (fieldId, condIdx, key, val) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId || !f.showIf?.conditions) return f;
+          const conds = [...f.showIf.conditions];
+          conds[condIdx] = { ...conds[condIdx], [key]: val };
+          return {
+            ...f,
+            showIf: { ...f.showIf, conditions: conds },
+          };
+        }),
+      };
+    });
+  };
+
+  const addCompoundConditionRow = (fieldId) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f, idx) => {
+          if (f.id !== fieldId || !f.showIf?.conditions) return f;
+          const preceding = prev.fields.slice(0, idx);
+          return {
+            ...f,
+            showIf: {
+              ...f.showIf,
+              conditions: [
+                ...f.showIf.conditions,
+                { field: preceding[0]?.id || "", operator: "equals", value: "yes" },
+              ],
+            },
+          };
+        }),
+      };
+    });
+  };
+
+  const removeCompoundConditionRow = (fieldId, condIdx) => {
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId || !f.showIf?.conditions) return f;
+          const conds = f.showIf.conditions.filter((_, i) => i !== condIdx);
+          return {
+            ...f,
+            showIf: { ...f.showIf, conditions: conds },
+          };
+        }),
+      };
+    });
+  };
+
+  // ----------------------------------------------------
+  // BACKEND INTEGRATION & APPLY (TASK 5 & ROUTING)
+  // ----------------------------------------------------
+
+  const handleSaveToBackend = async () => {
+    if (!generatedForm) return;
+
+    setApiSaving(true);
+    setApiError(null);
+    setApiSuccess(null);
+
+    const result = await saveFormToBackend(generatedForm);
+    setApiSaving(false);
+
+    if (result.success) {
+      setApiSuccess(`Form successfully saved to MongoDB backend! (Slug: ${result.data?.slug})`);
+      addToast("Saved to backend database!", "success");
+    } else {
+      setApiError(result.error);
+      addToast("Backend API unavailable. Form saved to local cache.", "error");
+    }
+  };
 
   const handleApplyForm = () => {
-  if (!generatedForm) {
-    return;
-  }
+    if (!generatedForm) return;
 
-  navigate("/generated-form", {
-    state: {
-      schema: generatedForm,
-    },
-  });
-};
+    navigate("/generated-form", {
+      state: { schema: generatedForm },
+    });
+  };
 
-  // -----------------------------------
-  // UI
-  // -----------------------------------
+  const handleCopySchemaJson = () => {
+    if (!generatedForm) return;
+    navigator.clipboard.writeText(JSON.stringify(generatedForm, null, 2));
+    addToast("Schema JSON copied to clipboard!", "success");
+  };
+
+  const handleDownloadSchemaJson = () => {
+    if (!generatedForm) return;
+    const blob = new Blob([JSON.stringify(generatedForm, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${generatedForm.id || "forma-schema"}.json`;
+    a.click();
+    URL.revokeObjectURL(a);
+    addToast("Downloaded schema file!", "success");
+  };
+
+  // Stats calculation
+  const totalFields = generatedForm?.fields?.length || 0;
+  const requiredCount = generatedForm?.fields?.filter((f) => f.required).length || 0;
+  const logicCount = generatedForm?.fields?.filter((f) => f.showIf).length || 0;
 
   return (
-    <div className="ai-input-page">
-      <div className="ai-input-container">
-
-        {/* PAGE HEADER */}
-
-        <h1>AI Form Generator</h1>
-
-        <p>
-          Describe the form you want to create, and Forma AI
-          will generate the structure for you.
-        </p>
-
-        {/* PROMPT */}
-
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Describe the form you want to create..."
-          rows={8}
-        />
-
-        {/* GENERATE BUTTON */}
-
-        <button
-          onClick={handleGenerate}
-          disabled={loading || !prompt.trim()}
-        >
-          {loading ? "Generating..." : "Generate Form"}
-        </button>
-
-        {/* EXAMPLES */}
-
-        <div className="example-section">
-          <h3>Try an example</h3>
-
-          {[
-            "Create a vehicle insurance claim form",
-            "Create a medical claim form",
-            "Create a property damage claim form",
-          ].map((example) => (
-            <button
-              key={example}
-              type="button"
-              onClick={() => handleExample(example)}
-            >
-              {example}
-            </button>
-          ))}
+    <div className="ai-studio-page">
+      {/* HEADER */}
+      <header className="ai-studio-header">
+        <div>
+          <div className="ai-header-badge">
+            <Sparkles size={14} />
+            Forma AI Studio
+          </div>
+          <h1>AI Form Generator & Visual Studio</h1>
+          <p>
+            Describe any form in natural language. Forma AI automatically drafts the schema with
+            type detection, field options, custom validations, and multi-level conditional logic.
+          </p>
         </div>
 
-        {/* GENERATED FORM PREVIEW */}
+        <div className="ai-engine-chip">
+          <span className="ai-engine-dot"></span>
+          <span>Forma Neural Engine v2.4</span>
+        </div>
+      </header>
 
-        {generatedForm && (
-          <div className="generated-preview">
+      {/* PROMPT GENERATOR SECTION (TASK 5 & 6) */}
+      <section className="ai-generator-card">
+        <div className="ai-prompt-header">
+          <div className="ai-prompt-title">
+            <Sparkles size={18} color="#4f46e5" />
+            <span>Describe your form requirements</span>
+          </div>
+          <span className="ai-char-counter">{prompt.length} characters</span>
+        </div>
 
-            <div className="preview-header">
-              <h2>{generatedForm.title}</h2>
+        <textarea
+          className={`ai-prompt-textarea ${promptError ? "has-error" : ""}`}
+          value={prompt}
+          onChange={(e) => {
+            setPrompt(e.target.value);
+            if (promptError) setPromptError(null);
+          }}
+          placeholder="e.g. Create a comprehensive vehicle insurance claim form that asks for driver details, accident occurrence, and conditionally reveals damage severity and police report numbers..."
+          rows={3}
+        />
 
-              <p>{generatedForm.description}</p>
+        {/* Prompt error banner */}
+        {promptError && (
+          <div className="ai-alert-banner warning">
+            <AlertCircle size={18} />
+            <div className="ai-alert-content">
+              <strong>Input Required</strong>
+              <span>{promptError}</span>
             </div>
-
-            <h3>Edit Generated Fields</h3>
-
-            <div className="generated-fields">
-
-              {generatedForm.fields.map((field) => (
-                <div
-                  className="generated-field"
-                  key={field.id}
-                >
-
-                  {/* FIELD LABEL */}
-
-                  <div className="field-editor">
-                    <label>Field Label</label>
-
-                    <input
-                      type="text"
-                      value={field.label}
-                      onChange={(e) =>
-                        updateField(
-                          field.id,
-                          "label",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Enter field label"
-                    />
-                  </div>
-
-                  {/* FIELD TYPE */}
-
-                  <div className="field-editor">
-                    <label>Field Type</label>
-
-                    <select
-                      value={field.type}
-                      onChange={(e) =>
-                        updateField(
-                          field.id,
-                          "type",
-                          e.target.value
-                        )
-                      }
-                    >
-                      <option value="text">
-                        Text
-                      </option>
-
-                      <option value="email">
-                        Email
-                      </option>
-
-                      <option value="date">
-                        Date
-                      </option>
-
-                      <option value="number">
-                        Number
-                      </option>
-
-                      <option value="select">
-                        Dropdown
-                      </option>
-
-                      <option value="radio">
-                        Radio
-                      </option>
-
-                      <option value="checkbox">
-                        Checkbox
-                      </option>
-
-                      <option value="textarea">
-                        Textarea
-                      </option>
-                    </select>
-                  </div>
-
-                  {/* REQUIRED */}
-
-                  <div className="field-required">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={field.required}
-                        onChange={(e) =>
-                          updateField(
-                            field.id,
-                            "required",
-                            e.target.checked
-                          )
-                        }
-                      />
-
-                      Required
-                    </label>
-                  </div>
-
-                  {/* REMOVE */}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      deleteField(field.id)
-                    }
-                  >
-                    Remove
-                  </button>
-
-                </div>
-              ))}
-
-            </div>
-
-            {/* APPLY */}
-
-            <button
-              className="apply-form-btn"
-              onClick={handleApplyForm}
-            >
-              Apply to Form
-            </button>
-
           </div>
         )}
 
+        {/* Quick Example Prompts */}
+        <div className="ai-prompt-examples">
+          <span className="ai-examples-label">Try prompt:</span>
+          <button
+            type="button"
+            className="ai-example-btn"
+            onClick={() =>
+              handleExamplePrompt(
+                "Create a vehicle insurance claim form with accident details and conditional damage severity."
+              )
+            }
+          >
+            🚗 Vehicle Insurance Claim
+          </button>
+          <button
+            type="button"
+            className="ai-example-btn"
+            onClick={() =>
+              handleExamplePrompt(
+                "Create a medical health intake form with inpatient days, surgery details, and diagnosis."
+              )
+            }
+          >
+            🏥 Medical & Health Claim
+          </button>
+          <button
+            type="button"
+            className="ai-example-btn"
+            onClick={() =>
+              handleExamplePrompt(
+                "Create a property damage claim form with damage causes and uninhabitable relocation costs."
+              )
+            }
+          >
+            🏠 Property Damage Form
+          </button>
+          <button
+            type="button"
+            className="ai-example-btn"
+            onClick={() =>
+              handleExamplePrompt(
+                "Create an event registration and RSVP form with VIP dinner options and dietary restrictions."
+              )
+            }
+          >
+            🎟️ Event RSVP & Registration
+          </button>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="ai-prompt-footer">
+          <button
+            type="button"
+            className="ai-clear-btn"
+            onClick={() => {
+              setPrompt("");
+              setPromptError(null);
+            }}
+            disabled={!prompt || loading}
+          >
+            Clear Prompt
+          </button>
+
+          <div className="ai-prompt-btn-group">
+            <button
+              type="button"
+              className="ai-generate-btn"
+              onClick={handleGenerate}
+              disabled={loading}
+            >
+              <Sparkles size={16} />
+              {loading ? "Synthesizing Schema..." : "Generate Form with AI"}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* MULTI-STEP LOADING STATE (TASK 6) */}
+      {loading && (
+        <div className="ai-loading-container">
+          <div className="ai-loading-spinner spin-animation">
+            <Sparkles size={28} />
+          </div>
+          <h3 className="ai-loading-title">Forma AI is crafting your schema</h3>
+          <p className="ai-loading-desc">Extracting entities, configuring validation rules, and structuring conditional flows...</p>
+
+          <div className="ai-loading-steps">
+            <div className={`ai-step-pill ${generationStep >= 1 ? (generationStep > 1 ? "completed" : "active") : ""}`}>
+              {generationStep > 1 ? <Check size={14} /> : <span>1</span>}
+              <span>Semantic Intent Analysis</span>
+            </div>
+            <div className={`ai-step-pill ${generationStep >= 2 ? (generationStep > 2 ? "completed" : "active") : ""}`}>
+              {generationStep > 2 ? <Check size={14} /> : <span>2</span>}
+              <span>Schema & Type Synthesis</span>
+            </div>
+            <div className={`ai-step-pill ${generationStep >= 3 ? (generationStep > 3 ? "completed" : "active") : ""}`}>
+              {generationStep > 3 ? <Check size={14} /> : <span>3</span>}
+              <span>Validation & Options Setup</span>
+            </div>
+            <div className={`ai-step-pill ${generationStep >= 4 ? "completed" : ""}`}>
+              <span>4</span>
+              <span>Conditional Logic Trees</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GENERATION ERROR BANNER (TASK 5) */}
+      {generationError && (
+        <div className="ai-alert-banner error">
+          <AlertCircle size={20} />
+          <div className="ai-alert-content">
+            <strong>Form Generation Failed</strong>
+            <span>{generationError}</span>
+            <div>
+              <button type="button" className="ai-retry-btn" onClick={handleGenerate}>
+                <RotateCcw size={12} /> Retry Generation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WORKSPACE & EDITOR */}
+      {generatedForm && !loading && (
+        <main className="ai-workspace">
+          {/* TABS & TOP TOOLBAR */}
+          <div className="ai-workspace-nav">
+            <div className="ai-tabs">
+              <button
+                type="button"
+                className={`ai-tab-btn ${activeTab === "editor" ? "active" : ""}`}
+                onClick={() => setActiveTab("editor")}
+              >
+                <Sliders size={16} />
+                <span>Visual Field Editor</span>
+                <span className="ai-tab-counter">{totalFields}</span>
+              </button>
+
+              <button
+                type="button"
+                className={`ai-tab-btn ${activeTab === "preview" ? "active" : ""}`}
+                onClick={() => setActiveTab("preview")}
+              >
+                <Eye size={16} />
+                <span>Live Interactive Preview</span>
+              </button>
+
+              <button
+                type="button"
+                className={`ai-tab-btn ${activeTab === "json" ? "active" : ""}`}
+                onClick={() => setActiveTab("json")}
+              >
+                <Code2 size={16} />
+                <span>Schema JSON</span>
+              </button>
+            </div>
+
+            <div className="ai-workspace-actions">
+              <button
+                type="button"
+                className="ai-save-api-btn"
+                onClick={handleSaveToBackend}
+                disabled={apiSaving}
+                title="Publish schema to backend MongoDB"
+              >
+                <CloudUpload size={16} />
+                {apiSaving ? "Saving..." : "Save to Backend (API)"}
+              </button>
+
+              <button
+                type="button"
+                className="ai-apply-btn"
+                onClick={handleApplyForm}
+                title="Launch standalone form page"
+              >
+                <span>Apply to Form</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* BACKEND API STATUS ALERTS (TASK 5) */}
+          {apiError && (
+            <div className="ai-alert-banner error" style={{ marginBottom: 18 }}>
+              <AlertCircle size={18} />
+              <div className="ai-alert-content">
+                <strong>Backend API Notice</strong>
+                <span>{apiError}</span>
+                <div>
+                  <button type="button" className="ai-retry-btn" onClick={handleSaveToBackend}>
+                    <RotateCcw size={12} /> Retry Save to API
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {apiSuccess && (
+            <div className="ai-alert-banner info" style={{ marginBottom: 18 }}>
+              <CheckCircle2 size={18} />
+              <div className="ai-alert-content">
+                <strong>Saved Successfully</strong>
+                <span>{apiSuccess}</span>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 1: VISUAL FIELD EDITOR */}
+          {activeTab === "editor" && (
+            <div>
+              {/* Form Title & Description Inline Editor */}
+              <div className="ai-meta-card">
+                <div className="ai-meta-grid">
+                  <div className="ai-meta-input-group">
+                    <label>Form Title</label>
+                    <input
+                      type="text"
+                      className="ai-meta-input"
+                      value={generatedForm.title || ""}
+                      onChange={(e) => updateFormMeta("title", e.target.value)}
+                      placeholder="Form Title"
+                    />
+                  </div>
+                  <div className="ai-meta-input-group">
+                    <label>Form Description</label>
+                    <input
+                      type="text"
+                      className="ai-meta-input"
+                      value={generatedForm.description || ""}
+                      onChange={(e) => updateFormMeta("description", e.target.value)}
+                      placeholder="Form Description"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* STATS SUMMARY BAR */}
+              <div className="ai-stats-bar">
+                <div className="ai-stat-item">
+                  <Layers size={15} color="#4f46e5" />
+                  <span>
+                    Total Fields: <strong>{totalFields}</strong>
+                  </span>
+                </div>
+                <div className="ai-stat-divider"></div>
+                <div className="ai-stat-item">
+                  <CheckCircle2 size={15} color="#ef4444" />
+                  <span>
+                    Required: <strong>{requiredCount}</strong>
+                  </span>
+                </div>
+                <div className="ai-stat-divider"></div>
+                <div className="ai-stat-item">
+                  <ListFilter size={15} color="#7c3aed" />
+                  <span>
+                    Conditional Logic: <strong>{logicCount}</strong>
+                  </span>
+                </div>
+                <div className="ai-stat-divider"></div>
+                <span style={{ color: "#64748b", fontSize: 12 }}>
+                  Drag or use arrows to reorder fields. Rules cascade automatically.
+                </span>
+              </div>
+
+              {/* FIELDS LIST HEADER */}
+              <div className="ai-add-field-banner">
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
+                  Form Structure & Fields
+                </h3>
+                <button type="button" className="ai-add-field-btn" onClick={addField}>
+                  <Plus size={16} />
+                  Add New Field
+                </button>
+              </div>
+
+              {/* EMPTY FIELDS STATE (TASK 5) */}
+              {totalFields === 0 && (
+                <div className="ai-empty-fields-card">
+                  <Layers size={42} color="#94a3b8" />
+                  <h3>No Fields in this Form</h3>
+                  <p>All fields have been removed. Add a new field manually or regenerate using a prompt.</p>
+                  <button type="button" className="ai-generate-btn" onClick={addField}>
+                    <Plus size={16} /> Add First Field
+                  </button>
+                </div>
+              )}
+
+              {/* FIELD CARDS ACCORDION */}
+              <div className="ai-fields-container">
+                {generatedForm.fields.map((field, index) => {
+                  const isExpanded = expandedFieldId === field.id;
+                  const precedingFields = generatedForm.fields.slice(0, index);
+                  const isSelectOrRadio = field.type === "select" || field.type === "radio";
+                  const hasOptions = Array.isArray(field.options) && field.options.length > 0;
+
+                  return (
+                    <div
+                      key={field.id}
+                      className={`ai-field-card ${isExpanded ? "expanded" : ""}`}
+                    >
+                      {/* CARD HEADER */}
+                      <div
+                        className="ai-field-header"
+                        onClick={() => setExpandedFieldId(isExpanded ? null : field.id)}
+                      >
+                        <div className="ai-field-header-left">
+                          {/* Reorder Buttons */}
+                          <div
+                            className="ai-field-reorder-btns"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              className="ai-reorder-btn"
+                              disabled={index === 0}
+                              onClick={() => moveField(field.id, "up")}
+                              title="Move field up"
+                            >
+                              <ChevronUp size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className="ai-reorder-btn"
+                              disabled={index === totalFields - 1}
+                              onClick={() => moveField(field.id, "down")}
+                              title="Move field down"
+                            >
+                              <ChevronDown size={12} />
+                            </button>
+                          </div>
+
+                          <span className="ai-field-index">#{index + 1}</span>
+
+                          <div className="ai-field-title-info">
+                            <span className="ai-field-header-label">{field.label || "Untitled Field"}</span>
+                            <span className="ai-field-header-id">{field.id}</span>
+                          </div>
+                        </div>
+
+                        {/* BADGES & QUICK ACTIONS */}
+                        <div className="ai-field-header-badges">
+                          <span className={`ai-type-pill ${field.type}`}>{field.type}</span>
+
+                          <span className={`ai-req-pill ${field.required ? "required" : "optional"}`}>
+                            {field.required ? "Required" : "Optional"}
+                          </span>
+
+                          {field.showIf && (
+                            <span className="ai-logic-pill" title="Has conditional visibility rule">
+                              <ListFilter size={11} />
+                              showIf logic
+                            </span>
+                          )}
+
+                          <div
+                            className="ai-field-header-actions"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              className="ai-card-action-btn"
+                              onClick={() => duplicateField(field.id)}
+                              title="Duplicate Field"
+                            >
+                              <Copy size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              className="ai-card-action-btn delete"
+                              onClick={() => deleteField(field.id)}
+                              title="Delete Field"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              className="ai-card-action-btn"
+                              onClick={() => setExpandedFieldId(isExpanded ? null : field.id)}
+                            >
+                              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CARD BODY (EXPANDABLE) */}
+                      {isExpanded && (
+                        <div className="ai-field-body">
+                          {/* SECTION 1: GENERAL PROPERTIES (TASK 1) */}
+                          <div className="ai-editor-section">
+                            <div className="ai-editor-section-title">
+                              <span>General Field Properties</span>
+                            </div>
+
+                            <div className="ai-form-row">
+                              {/* FIELD LABEL */}
+                              <div className="ai-form-group">
+                                <label>Field Label *</label>
+                                <input
+                                  type="text"
+                                  className="ai-input-control"
+                                  value={field.label || ""}
+                                  onChange={(e) =>
+                                    updateFieldProperty(field.id, "label", e.target.value)
+                                  }
+                                  placeholder="e.g. Full Legal Name"
+                                />
+                              </div>
+
+                              {/* FIELD IDENTIFIER / NAME */}
+                              <div className="ai-form-group">
+                                <label>Field Identifier (ID/Name)</label>
+                                <input
+                                  type="text"
+                                  className="ai-input-control"
+                                  value={field.id}
+                                  onChange={(e) =>
+                                    updateFieldProperty(
+                                      field.id,
+                                      "id",
+                                      e.target.value.replace(/[^a-zA-Z0-9_]/g, "_")
+                                    )
+                                  }
+                                  placeholder="unique_id"
+                                />
+                              </div>
+
+                              {/* FIELD TYPE SELECTOR */}
+                              <div className="ai-form-group">
+                                <label>Field Type</label>
+                                <select
+                                  className="ai-select-control"
+                                  value={field.type}
+                                  onChange={(e) =>
+                                    updateFieldProperty(field.id, "type", e.target.value)
+                                  }
+                                >
+                                  <option value="text">Text (Single-line)</option>
+                                  <option value="email">Email Address</option>
+                                  <option value="number">Number</option>
+                                  <option value="date">Date Picker</option>
+                                  <option value="select">Dropdown Select</option>
+                                  <option value="radio">Radio Buttons</option>
+                                  <option value="checkbox">Checkbox (Toggle)</option>
+                                  <option value="textarea">Textarea (Multi-line)</option>
+                                </select>
+                              </div>
+
+                              {/* REQUIRED TOGGLE */}
+                              <div className="ai-form-group" style={{ justifyContent: "center" }}>
+                                <label>&nbsp;</label>
+                                <label className="ai-toggle-label">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(field.required)}
+                                    onChange={(e) =>
+                                      updateFieldProperty(field.id, "required", e.target.checked)
+                                    }
+                                  />
+                                  <span>Required Field</span>
+                                </label>
+                              </div>
+                            </div>
+
+                            <div className="ai-form-row" style={{ marginTop: 12 }}>
+                              <div className="ai-form-group">
+                                <label>Placeholder Text</label>
+                                <input
+                                  type="text"
+                                  className="ai-input-control"
+                                  value={field.placeholder || ""}
+                                  onChange={(e) =>
+                                    updateFieldProperty(field.id, "placeholder", e.target.value)
+                                  }
+                                  placeholder="Hint text inside input"
+                                />
+                              </div>
+
+                              <div className="ai-form-group">
+                                <label>Help Text / Hint</label>
+                                <input
+                                  type="text"
+                                  className="ai-input-control"
+                                  value={field.helpText || ""}
+                                  onChange={(e) =>
+                                    updateFieldProperty(field.id, "helpText", e.target.value)
+                                  }
+                                  placeholder="Subtext shown below the field"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* SECTION 2: FIELD OPTIONS EDITOR (TASK 2) */}
+                          {isSelectOrRadio && (
+                            <div className="ai-editor-section">
+                              <div className="ai-editor-section-title">
+                                <span>Options for {field.type === "radio" ? "Radio Buttons" : "Dropdown List"}</span>
+                                <span style={{ fontSize: 12, color: "#64748b" }}>
+                                  Custom label and value supported
+                                </span>
+                              </div>
+
+                              <div className="ai-options-list">
+                                {(field.options || []).map((opt, optIdx) => (
+                                  <div className="ai-option-row" key={optIdx}>
+                                    <span className="ai-option-num">{optIdx + 1}.</span>
+                                    <input
+                                      type="text"
+                                      className="ai-input-control"
+                                      value={opt.label || ""}
+                                      onChange={(e) =>
+                                        updateOption(field.id, optIdx, "label", e.target.value)
+                                      }
+                                      placeholder="Option Display Label"
+                                      style={{ flex: 1.5 }}
+                                    />
+                                    <input
+                                      type="text"
+                                      className="ai-input-control"
+                                      value={opt.value || ""}
+                                      onChange={(e) =>
+                                        updateOption(field.id, optIdx, "value", e.target.value)
+                                      }
+                                      placeholder="Stored Value"
+                                      style={{ flex: 1 }}
+                                    />
+                                    <button
+                                      type="button"
+                                      className="ai-remove-opt-btn"
+                                      onClick={() => removeOption(field.id, optIdx)}
+                                      disabled={(field.options?.length || 0) <= 1}
+                                      title="Remove option"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="ai-option-actions">
+                                <button
+                                  type="button"
+                                  className="ai-add-opt-btn"
+                                  onClick={() => addOption(field.id)}
+                                >
+                                  <Plus size={14} /> Add Option
+                                </button>
+
+                                <div className="ai-preset-options">
+                                  <span style={{ fontSize: 12, color: "#64748b" }}>Quick Presets:</span>
+                                  <button
+                                    type="button"
+                                    className="ai-preset-btn"
+                                    onClick={() => applyOptionPreset(field.id, "yesNo")}
+                                  >
+                                    Yes / No
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ai-preset-btn"
+                                    onClick={() => applyOptionPreset(field.id, "priority")}
+                                  >
+                                    Priority Levels
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ai-preset-btn"
+                                    onClick={() => applyOptionPreset(field.id, "satisfaction")}
+                                  >
+                                    Satisfaction
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* SECTION 3: VALIDATION EDITOR (TASK 3) */}
+                          <div className="ai-editor-section">
+                            <div className="ai-editor-section-title">
+                              <span>Validation Rules</span>
+                              <span style={{ fontSize: 12, color: "#64748b" }}>
+                                Configure constraints and error messages
+                              </span>
+                            </div>
+
+                            <div className="ai-form-row">
+                              {/* MIN / MAX LENGTH FOR TEXT */}
+                              {(field.type === "text" || field.type === "textarea" || field.type === "email") && (
+                                <>
+                                  <div className="ai-form-group">
+                                    <label>Min Length</label>
+                                    <input
+                                      type="number"
+                                      className="ai-input-control"
+                                      min={0}
+                                      value={field.minLength || field.validation?.minLength || ""}
+                                      onChange={(e) => {
+                                        const v = e.target.value ? Number(e.target.value) : undefined;
+                                        updateFieldProperty(field.id, "minLength", v);
+                                        updateValidation(field.id, "minLength", v);
+                                      }}
+                                      placeholder="e.g. 2"
+                                    />
+                                  </div>
+                                  <div className="ai-form-group">
+                                    <label>Max Length</label>
+                                    <input
+                                      type="number"
+                                      className="ai-input-control"
+                                      min={1}
+                                      value={field.maxLength || field.validation?.maxLength || ""}
+                                      onChange={(e) => {
+                                        const v = e.target.value ? Number(e.target.value) : undefined;
+                                        updateFieldProperty(field.id, "maxLength", v);
+                                        updateValidation(field.id, "maxLength", v);
+                                      }}
+                                      placeholder="e.g. 100"
+                                    />
+                                  </div>
+                                </>
+                              )}
+
+                              {/* NUMBER VALIDATION (MIN/MAX/INTEGER) */}
+                              {field.type === "number" && (
+                                <>
+                                  <div className="ai-form-group">
+                                    <label>Min Value</label>
+                                    <input
+                                      type="number"
+                                      className="ai-input-control"
+                                      value={field.min ?? field.validation?.min ?? ""}
+                                      onChange={(e) => {
+                                        const v = e.target.value !== "" ? Number(e.target.value) : undefined;
+                                        updateFieldProperty(field.id, "min", v);
+                                        updateValidation(field.id, "min", v);
+                                      }}
+                                      placeholder="e.g. 0"
+                                    />
+                                  </div>
+                                  <div className="ai-form-group">
+                                    <label>Max Value</label>
+                                    <input
+                                      type="number"
+                                      className="ai-input-control"
+                                      value={field.max ?? field.validation?.max ?? ""}
+                                      onChange={(e) => {
+                                        const v = e.target.value !== "" ? Number(e.target.value) : undefined;
+                                        updateFieldProperty(field.id, "max", v);
+                                        updateValidation(field.id, "max", v);
+                                      }}
+                                      placeholder="e.g. 10000"
+                                    />
+                                  </div>
+                                  <div className="ai-form-group" style={{ justifyContent: "center" }}>
+                                    <label>&nbsp;</label>
+                                    <label className="ai-toggle-label">
+                                      <input
+                                        type="checkbox"
+                                        checked={Boolean(field.validation?.integerOnly)}
+                                        onChange={(e) =>
+                                          updateValidation(field.id, "integerOnly", e.target.checked)
+                                        }
+                                      />
+                                      <span>Integer (Whole Numbers) Only</span>
+                                    </label>
+                                  </div>
+                                </>
+                              )}
+
+                              {/* PATTERN (REGEX) */}
+                              <div className="ai-form-group" style={{ gridColumn: "span 2" }}>
+                                <label>Pattern (Regex Validation)</label>
+                                <input
+                                  type="text"
+                                  className="ai-input-control"
+                                  value={field.pattern || field.validation?.pattern || ""}
+                                  onChange={(e) => {
+                                    updateFieldProperty(field.id, "pattern", e.target.value);
+                                    updateValidation(field.id, "pattern", e.target.value);
+                                  }}
+                                  placeholder="e.g. ^[0-9]{10}$"
+                                />
+
+                                <div className="ai-validation-presets">
+                                  <span style={{ fontSize: 12, color: "#64748b" }}>Quick Regex Presets:</span>
+                                  {REGEX_PRESETS.map((p) => (
+                                    <button
+                                      key={p.label}
+                                      type="button"
+                                      className="ai-val-chip"
+                                      onClick={() => applyRegexPreset(field.id, p)}
+                                    >
+                                      {p.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* CUSTOM ERROR MESSAGE */}
+                              <div className="ai-form-group" style={{ gridColumn: "span 2" }}>
+                                <label>Custom Error Message (shown on validation failure)</label>
+                                <input
+                                  type="text"
+                                  className="ai-input-control"
+                                  value={field.validation?.message || ""}
+                                  onChange={(e) => updateValidation(field.id, "message", e.target.value)}
+                                  placeholder="e.g. Please enter a valid 10-digit registration number"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* SECTION 4: CONDITIONAL LOGIC EDITOR (TASK 4) */}
+                          <div className="ai-editor-section">
+                            <div className="ai-editor-section-title">
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <ListFilter size={16} color="#7c3aed" />
+                                <span>Conditional Logic (showIf)</span>
+                              </div>
+                              <label className="ai-toggle-label">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(field.showIf)}
+                                  onChange={() => toggleConditionalLogic(field.id)}
+                                />
+                                <span>Enable Visibility Condition</span>
+                              </label>
+                            </div>
+
+                            {field.showIf ? (
+                              precedingFields.length === 0 ? (
+                                <div className="ai-alert-banner info" style={{ margin: 0 }}>
+                                  <Info size={16} />
+                                  <span>
+                                    This is the first field in the form. Conditional logic requires at least one
+                                    preceding field to depend upon. Reorder this field or add a field before it.
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="ai-logic-panel">
+                                  {/* SINGLE CONDITION OR COMPOUND TOGGLE */}
+                                  <div className="ai-match-type-selector">
+                                    <span>Logic Mode:</span>
+                                    <label className="ai-toggle-label" style={{ fontSize: 12.5 }}>
+                                      <input
+                                        type="radio"
+                                        name={`mode_${field.id}`}
+                                        checked={!field.showIf.conditions}
+                                        onChange={() => toggleConditionMode(field.id, "single")}
+                                      />
+                                      <span>Single Condition</span>
+                                    </label>
+                                    <label className="ai-toggle-label" style={{ fontSize: 12.5 }}>
+                                      <input
+                                        type="radio"
+                                        name={`mode_${field.id}`}
+                                        checked={Boolean(field.showIf.conditions)}
+                                        onChange={() => toggleConditionMode(field.id, "compound")}
+                                      />
+                                      <span>Multi-Level / Compound (AND / OR)</span>
+                                    </label>
+                                  </div>
+
+                                  {/* SINGLE CONDITION ROW */}
+                                  {!field.showIf.conditions && (
+                                    <div className="ai-logic-rule-row">
+                                      {/* Dependent field select */}
+                                      <select
+                                        className="ai-select-control"
+                                        value={field.showIf.field || ""}
+                                        onChange={(e) =>
+                                          updateSingleCondition(field.id, "field", e.target.value)
+                                        }
+                                      >
+                                        <option value="">Select dependent field...</option>
+                                        {precedingFields.map((pf) => (
+                                          <option key={pf.id} value={pf.id}>
+                                            {pf.label} ({pf.id})
+                                          </option>
+                                        ))}
+                                      </select>
+
+                                      {/* Operator */}
+                                      <select
+                                        className="ai-select-control"
+                                        value={field.showIf.operator || "equals"}
+                                        onChange={(e) =>
+                                          updateSingleCondition(field.id, "operator", e.target.value)
+                                        }
+                                      >
+                                        <option value="equals">equals</option>
+                                        <option value="notEquals">does not equal</option>
+                                        <option value="in">is one of (in)</option>
+                                        <option value="gt">greater than (&gt;)</option>
+                                        <option value="lt">less than (&lt;)</option>
+                                        <option value="notEmpty">is not empty</option>
+                                        <option value="empty">is empty</option>
+                                      </select>
+
+                                      {/* Target Value (Smart Picker) */}
+                                      {(() => {
+                                        const depField = precedingFields.find(
+                                          (pf) => pf.id === field.showIf.field
+                                        );
+                                        const depOpts = depField?.options;
+
+                                        if (depOpts && depOpts.length > 0) {
+                                          return (
+                                            <select
+                                              className="ai-select-control"
+                                              value={field.showIf.value ?? ""}
+                                              onChange={(e) =>
+                                                updateSingleCondition(field.id, "value", e.target.value)
+                                              }
+                                            >
+                                              <option value="">Select option value...</option>
+                                              {depOpts.map((opt) => (
+                                                <option key={opt.value} value={opt.value}>
+                                                  {opt.label} ({opt.value})
+                                                </option>
+                                              ))}
+                                            </select>
+                                          );
+                                        }
+
+                                        return (
+                                          <input
+                                            type="text"
+                                            className="ai-input-control"
+                                            value={field.showIf.value ?? ""}
+                                            onChange={(e) =>
+                                              updateSingleCondition(field.id, "value", e.target.value)
+                                            }
+                                            placeholder="Target value..."
+                                          />
+                                        );
+                                      })()}
+                                    </div>
+                                  )}
+
+                                  {/* COMPOUND MULTI-CONDITION ROWS */}
+                                  {field.showIf.conditions && (
+                                    <div>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                                        <span style={{ fontSize: 13, fontWeight: 600 }}>Match:</span>
+                                        <select
+                                          className="ai-select-control"
+                                          style={{ width: "auto" }}
+                                          value={field.showIf.operator || "and"}
+                                          onChange={(e) =>
+                                            setGeneratedForm((prev) => ({
+                                              ...prev,
+                                              fields: prev.fields.map((f) =>
+                                                f.id === field.id
+                                                  ? { ...f, showIf: { ...f.showIf, operator: e.target.value } }
+                                                  : f
+                                              ),
+                                            }))
+                                          }
+                                        >
+                                          <option value="and">ALL conditions must match (AND)</option>
+                                          <option value="or">ANY condition can match (OR)</option>
+                                        </select>
+                                      </div>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                        {field.showIf.conditions.map((subCond, subIdx) => {
+                                          const depField = precedingFields.find(
+                                            (pf) => pf.id === subCond.field
+                                          );
+                                          const depOpts = depField?.options;
+
+                                          return (
+                                            <div className="ai-logic-rule-row" key={subIdx}>
+                                              <select
+                                                className="ai-select-control"
+                                                value={subCond.field || ""}
+                                                onChange={(e) =>
+                                                  updateCompoundConditionRow(field.id, subIdx, "field", e.target.value)
+                                                }
+                                              >
+                                                <option value="">Select field...</option>
+                                                {precedingFields.map((pf) => (
+                                                  <option key={pf.id} value={pf.id}>
+                                                    {pf.label}
+                                                  </option>
+                                                ))}
+                                              </select>
+
+                                              <select
+                                                className="ai-select-control"
+                                                value={subCond.operator || "equals"}
+                                                onChange={(e) =>
+                                                  updateCompoundConditionRow(field.id, subIdx, "operator", e.target.value)
+                                                }
+                                              >
+                                                <option value="equals">equals</option>
+                                                <option value="notEquals">does not equal</option>
+                                                <option value="in">is one of (in)</option>
+                                                <option value="gt">greater than (&gt;)</option>
+                                                <option value="lt">less than (&lt;)</option>
+                                                <option value="notEmpty">not empty</option>
+                                              </select>
+
+                                              {depOpts && depOpts.length > 0 ? (
+                                                <select
+                                                  className="ai-select-control"
+                                                  value={subCond.value ?? ""}
+                                                  onChange={(e) =>
+                                                    updateCompoundConditionRow(field.id, subIdx, "value", e.target.value)
+                                                  }
+                                                >
+                                                  <option value="">Select option value...</option>
+                                                  {depOpts.map((opt) => (
+                                                    <option key={opt.value} value={opt.value}>
+                                                      {opt.label} ({opt.value})
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              ) : (
+                                                <input
+                                                  type="text"
+                                                  className="ai-input-control"
+                                                  value={subCond.value ?? ""}
+                                                  onChange={(e) =>
+                                                    updateCompoundConditionRow(field.id, subIdx, "value", e.target.value)
+                                                  }
+                                                  placeholder="Target value..."
+                                                />
+                                              )}
+
+                                              <button
+                                                type="button"
+                                                className="ai-remove-opt-btn"
+                                                onClick={() => removeCompoundConditionRow(field.id, subIdx)}
+                                                disabled={field.showIf.conditions.length <= 1}
+                                                title="Delete rule"
+                                              >
+                                                <Trash2 size={13} />
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        className="ai-add-opt-btn"
+                                        style={{ marginTop: 10 }}
+                                        onClick={() => addCompoundConditionRow(field.id)}
+                                      >
+                                        <Plus size={14} /> Add Another Condition Rule
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            ) : (
+                              <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
+                                Enable this setting to show or hide this field based on answers given in preceding fields.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* BOTTOM APPLY BAR */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 28 }}>
+                <button type="button" className="ai-add-field-btn" onClick={addField}>
+                  <Plus size={15} /> Add Another Field
+                </button>
+                <button type="button" className="ai-apply-btn" onClick={handleApplyForm}>
+                  <span>Apply & Open Full Form</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: LIVE INTERACTIVE PREVIEW */}
+          {activeTab === "preview" && (
+            <div style={{ marginTop: 10 }}>
+              <div className="ai-alert-banner info" style={{ marginBottom: 20 }}>
+                <Eye size={18} />
+                <div className="ai-alert-content">
+                  <strong>Live Interactive Testing Mode</strong>
+                  <span>
+                    Test field visibility, select options, and submit answers to verify validation rules and conditional logic in real-time.
+                  </span>
+                </div>
+              </div>
+
+              <DynamicForm
+                schema={generatedForm}
+                onSubmitSuccess={(data) => {
+                  addToast("Test submission successful! Review payload below.", "success");
+                }}
+              />
+            </div>
+          )}
+
+          {/* TAB 3: SCHEMA JSON INSPECTOR */}
+          {activeTab === "json" && (
+            <div className="ai-json-inspector">
+              <div className="ai-json-toolbar">
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Code2 size={18} color="#818cf8" />
+                  <strong style={{ fontSize: 14 }}>Forma AI Schema Representation (JSON)</strong>
+                </div>
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" className="ai-preset-btn" onClick={handleCopySchemaJson}>
+                    <Copy size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
+                    Copy JSON
+                  </button>
+                  <button type="button" className="ai-preset-btn" onClick={handleDownloadSchemaJson}>
+                    <Download size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
+                    Download (.json)
+                  </button>
+                </div>
+              </div>
+
+              <pre className="ai-json-code">
+                {JSON.stringify(generatedForm, null, 2)}
+              </pre>
+            </div>
+          )}
+        </main>
+      )}
+
+      {/* TOAST SYSTEM (TASK 6) */}
+      <div className="ai-toasts-drawer">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`ai-toast-item ${toast.type}`}>
+            {toast.type === "success" && <CheckCircle2 size={16} />}
+            {toast.type === "error" && <AlertCircle size={16} />}
+            {toast.type === "info" && <Sparkles size={16} />}
+            <span>{toast.message}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
