@@ -12,6 +12,8 @@ import Templates from "./pages/Templates";
 import Submissions from "./pages/Submissions";
 
 import Layout from "./components/Layout";
+import AIInput from "./pages/AIInput";
+import GeneratedForm from "./pages/GeneratedForm";
 
 import "./App.css";
 
@@ -40,6 +42,16 @@ function App() {
           <Route
             path="/dashboard"
             element={<Dashboard />}
+          />
+
+          <Route
+            path="/ai-input"
+            element={<AIInput />}
+          />
+
+          <Route
+            path="/generated-form"
+            element={<GeneratedForm />}
           />
 
           <Route
