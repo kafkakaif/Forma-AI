@@ -1,6 +1,5 @@
 import React from "react";
-import DynamicForm from "../components/DynamicForm";
-import insuranceClaimSchema from "../data/insuranceClaimSchema";
+import { useNavigate } from "react-router-dom";
 import {
   FileText,
   Plus,
@@ -15,6 +14,8 @@ import {
 import "./Dashboard.css";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="dashboard-page">
 
@@ -31,7 +32,7 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <button className="create-form-btn">
+        <button className="create-form-btn" onClick={() => navigate("/ai-input")}>
           <Plus size={18} />
           Create Form
         </button>
@@ -54,7 +55,7 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <button className="ai-start-btn">
+        <button className="ai-start-btn" onClick={() => navigate("/ai-input")}>
           Try AI Input
           <ArrowUpRight size={16} />
         </button>
@@ -69,7 +70,7 @@ const Dashboard = () => {
 
         <div className="quick-actions">
 
-          <button className="quick-card">
+          <button className="quick-card" onClick={() => navigate("/ai-input")}>
 
             <div className="quick-icon">
               <Plus size={21} />
@@ -87,7 +88,7 @@ const Dashboard = () => {
 
           </button>
 
-          <button className="quick-card">
+          <button className="quick-card" onClick={() => navigate("/templates")}>
 
             <div className="quick-icon">
               <LayoutTemplate size={21} />

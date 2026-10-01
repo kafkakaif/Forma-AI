@@ -7,6 +7,7 @@ import {
   LayoutTemplate,
   Send,
   BarChart3,
+  Sparkles,
   User,
   Settings,
   HelpCircle,
@@ -38,6 +39,14 @@ const Sidebar = () => {
         >
           <Home size={19} />
           <span>Dashboard</span>
+        </NavLink>
+
+        <NavLink
+          to="/ai-input"
+          className="nav-item"
+        >
+          <Sparkles size={19} color="#6366f1" />
+          <span>AI Generator</span>
         </NavLink>
 
         <NavLink
