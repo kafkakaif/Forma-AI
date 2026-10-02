@@ -1013,13 +1013,46 @@ function AIInput() {
     }
   };
 
-  const handleApplyForm = () => {
-    if (!generatedForm) return;
+ const handleApplyForm = async () => {
+  if (!generatedForm) return;
 
+  setApiSaving(true);
+  setApiError(null);
+  setApiSuccess(null);
+
+  try {
+    const result = await saveFormToBackend(generatedForm);
+
+    if (!result.success) {
+      setApiError(result.error || "Failed to save form.");
+      addToast("Could not save form to backend.", "error");
+      return;
+    }
+
+    setApiSuccess(
+      `Form saved successfully! Slug: ${result.data?.slug}`
+    );
+
+    addToast("Form saved to MongoDB!", "success");
+
+    // Open the backend-saved schema
     navigate("/generated-form", {
-      state: { schema: generatedForm },
+      state: {
+        schema: result.data,
+      },
     });
-  };
+  } catch (error) {
+    console.error("Apply form error:", error);
+
+    setApiError(
+      error.message || "Failed to save form."
+    );
+
+    addToast("Failed to save form.", "error");
+  } finally {
+    setApiSaving(false);
+  }
+};
 
   const handleCopySchemaJson = () => {
     if (!generatedForm) return;
@@ -2075,8 +2108,17 @@ function AIInput() {
                 <button type="button" className="ai-add-field-btn" onClick={addField}>
                   <Plus size={15} /> Add Another Field
                 </button>
-                <button type="button" className="ai-apply-btn" onClick={handleApplyForm}>
-                  <span>Apply & Open Full Form</span>
+                <button
+  type="button"
+  className="ai-apply-btn"
+  onClick={handleApplyForm}
+  disabled={apiSaving}
+>
+                  <span>
+  {apiSaving
+    ? "Saving Form..."
+    : "Apply & Open Full Form"}
+</span>
                   <ArrowRight size={16} />
                 </button>
               </div>
