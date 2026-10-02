@@ -1,7 +1,16 @@
 // Rule engine shared by the backend (authoritative) and the React renderer (live UI).
 // Pure functions only: no DB, no DOM.
 
-export const FIELD_TYPES = ['text', 'select', 'checkbox'];
+export const FIELD_TYPES = [
+  'text',
+  'email',
+  'number',
+  'date',
+  'textarea',
+  'select',
+  'radio',
+  'checkbox',
+];
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9_]*$/;
 

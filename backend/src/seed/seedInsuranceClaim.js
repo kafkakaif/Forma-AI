@@ -2,11 +2,19 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import { connectDB } from "../config/db.js";
 import { FormSchema } from "../models/FormSchema.js";
-import { autoClaim, healthIntake } from "./forms.js";
+import {
+  autoClaim,
+  healthIntake,
+  insuranceClaim,
+} from "./forms.js";
 
 const seed = async () => {
   await connectDB();
-  for (const form of [autoClaim, healthIntake]) {
+  for (const form of [
+  autoClaim,
+  healthIntake,
+  insuranceClaim,
+]) {
     // Replace (not merge) so re-running never leaves stale sections/fields behind.
     await FormSchema.findOneAndDelete({ slug: form.slug });
     await FormSchema.create(form);

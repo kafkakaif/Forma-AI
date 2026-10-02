@@ -9,7 +9,7 @@ const fieldSchema = new mongoose.Schema(
     required: { type: Boolean, default: false },
     placeholder: String,
     helpText: String,
-    options: [String], // select only
+    options: [String], 
     validation: {
       minLength: Number,
       maxLength: Number,

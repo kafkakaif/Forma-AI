@@ -1,0 +1,62 @@
+[1mdiff --git a/frontend/src/App.jsx b/frontend/src/App.jsx[m
+[1mindex 7993278..cede490 100644[m
+[1m--- a/frontend/src/App.jsx[m
+[1m+++ b/frontend/src/App.jsx[m
+[36m@@ -4,6 +4,8 @@[m [mimport Login from "./pages/Login";[m
+ import Signup from "./pages/Signup";[m
+ import ForgotPassword from "./pages/ForgotPassword";[m
+ import InsuranceClaim from "./pages/InsuranceClaim";[m
+[32m+[m[32mimport AIInput from "./pages/AIInput";[m
+[32m+[m[32mimport GeneratedForm from "./pages/GeneratedForm";[m
+ [m
+ import Dashboard from "./pages/Dashboard";[m
+ import Profile from "./pages/Profile";[m
+[36m@@ -24,9 +26,14 @@[m [mfunction App() {[m
+         {/* ================= AUTHENTICATION ================= */}[m
+ [m
+         <Route path="/login" element={<Login />} />[m
+[32m+[m[32m        <Route[m
+[32m+[m[32m  path="/generated-form"[m
+[32m+[m[32m  element={<GeneratedForm />}[m
+[32m+[m[32m/>[m
+ [m
+         <Route path="/signup" element={<Signup />} />[m
+         <Route path="/insurance-claim" element={<InsuranceClaim />} />[m
+[32m+[m[32m        <Route path="/ai-input" element={<AIInput />} />[m
+ [m
+         <Route[m
+           path="/forgot-password"[m
+[1mdiff --git a/frontend/src/pages/Dashboard.jsx b/frontend/src/pages/Dashboard.jsx[m
+[1mindex e8f0b93..b351125 100644[m
+[1m--- a/frontend/src/pages/Dashboard.jsx[m
+[1m+++ b/frontend/src/pages/Dashboard.jsx[m
+[36m@@ -1,6 +1,6 @@[m
+ import React from "react";[m
+[31m-import DynamicForm from "../components/DynamicForm";[m
+[31m-import insuranceClaimSchema from "../data/insuranceClaimSchema";[m
+[32m+[m[32mimport { useNavigate } from "react-router-dom";[m
+[32m+[m
+ import {[m
+   FileText,[m
+   Plus,[m
+[36m@@ -15,6 +15,8 @@[m [mimport {[m
+ import "./Dashboard.css";[m
+ [m
+ const Dashboard = () => {[m
+[32m+[m[32m  const navigate = useNavigate();[m
+[32m+[m
+   return ([m
+     <div className="dashboard-page">[m
+ [m
+[36m@@ -54,7 +56,10 @@[m [mconst Dashboard = () => {[m
+           </p>[m
+         </div>[m
+ [m
+[31m-        <button className="ai-start-btn">[m
+[32m+[m[32m        <button[m
+[32m+[m[32m          className="ai-start-btn"[m
+[32m+[m[32m          onClick={() => navigate("/ai-input")}[m
+[32m+[m[32m        >[m
+           Try AI Input[m
+           <ArrowUpRight size={16} />[m
+         </button>[m

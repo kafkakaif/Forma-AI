@@ -7,7 +7,14 @@ import formRoutes from "./routes/formRoutes.js";
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_URL })); // allow the Vite app
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+    ],
+  })
+); // allow the Vite app
 app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));

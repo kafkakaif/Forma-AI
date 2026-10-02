@@ -145,3 +145,186 @@ export const healthIntake = {
   ],
 };
 
+export const insuranceClaim = {
+  slug: "insurance-claim",
+
+  title: "Insurance Claim Form",
+
+  description:
+    "Provide the details required to submit an insurance claim.",
+
+  sections: [
+    {
+      id: "personal",
+      title: "Personal Details",
+
+      fields: [
+        {
+          name: "fullName",
+          label: "Full Name",
+          type: "text",
+          required: true,
+          validation: {
+            minLength: 3,
+          },
+        },
+
+        {
+          name: "email",
+          label: "Email",
+          type: "email",
+          required: true,
+        },
+
+        {
+          name: "phone",
+          label: "Phone Number",
+          type: "text",
+          required: true,
+          validation: {
+            pattern: "^[0-9]{10}$",
+          },
+        },
+      ],
+    },
+
+    {
+      id: "claim",
+      title: "Claim Details",
+
+      fields: [
+        {
+          name: "claimType",
+          label: "Claim Type",
+          type: "select",
+          required: true,
+          options: [
+            "vehicle_accident",
+            "property_damage",
+            "medical",
+          ],
+        },
+
+        {
+          name: "incidentDate",
+          label: "Date of Incident",
+          type: "date",
+          required: true,
+        },
+
+        {
+          name: "vehicleNumber",
+          label: "Vehicle Registration Number",
+          type: "text",
+          required: true,
+        },
+      ],
+    },
+
+    {
+      id: "accident",
+      title: "Accident Details",
+
+      fields: [
+        {
+          name: "accidentOccurred",
+          label: "Did an accident occur?",
+          type: "radio",
+          required: true,
+          options: ["yes", "no"],
+        },
+
+        {
+          name: "accidentLocation",
+          label: "Where did the accident occur?",
+          type: "text",
+          required: true,
+          showIf: {
+            field: "accidentOccurred",
+            equals: "yes",
+          },
+        },
+
+        {
+          name: "vehicleDamaged",
+          label: "Was the vehicle damaged?",
+          type: "radio",
+          required: true,
+          options: ["yes", "no"],
+          showIf: {
+            field: "accidentOccurred",
+            equals: "yes",
+          },
+        },
+
+        {
+          name: "damageType",
+          label: "What type of damage occurred?",
+          type: "select",
+          required: true,
+          options: ["minor", "major"],
+          showIf: {
+            field: "vehicleDamaged",
+            equals: "yes",
+          },
+        },
+
+        {
+          name: "majorDamageDetails",
+          label: "Describe the major damage",
+          type: "textarea",
+          required: true,
+          showIf: {
+            field: "damageType",
+            equals: "major",
+          },
+        },
+
+        {
+          name: "policeReport",
+          label: "Was a police report filed?",
+          type: "radio",
+          required: true,
+          options: ["yes", "no"],
+          showIf: {
+            field: "majorDamageDetails",
+            exists: true,
+          },
+        },
+      ],
+    },
+
+    {
+      id: "injury",
+      title: "Injury Details",
+
+      fields: [
+        {
+          name: "injuries",
+          label: "Was anyone injured?",
+          type: "radio",
+          required: true,
+          options: ["yes", "no"],
+        },
+
+        {
+          name: "injuryDetails",
+          label: "Describe the injuries",
+          type: "textarea",
+          required: true,
+          showIf: {
+            field: "injuries",
+            equals: "yes",
+          },
+        },
+
+        {
+          name: "description",
+          label: "Describe the incident",
+          type: "textarea",
+          required: true,
+        },
+      ],
+    },
+  ],
+};
