@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles,
@@ -20,6 +20,7 @@ import {
   Check,
   Download,
   Info,
+  AlignLeft,
 } from "lucide-react";
 import DynamicForm from "../components/DynamicForm";
 import { saveFormToBackend } from "../services/formApi";
@@ -30,7 +31,9 @@ const REGEX_PRESETS = [
   { label: "10-digit Phone", pattern: "^[0-9]{10}$", message: "Enter a valid 10-digit phone number" },
   { label: "ZIP / Postal Code", pattern: "^\\d{5}(-\\d{4})?$", message: "Enter a valid 5-digit ZIP code" },
   { label: "Alphanumeric", pattern: "^[a-zA-Z0-9_]+$", message: "Only letters, numbers, and underscores allowed" },
-  { label: "URL", pattern: "^https?:\\/\\/.+", message: "Enter a valid web URL starting with https://" },
+  { label: "Alphabetic Only", pattern: "^[a-zA-Z\\s]+$", message: "Only letters and spaces are allowed" },
+  { label: "URL (https://)", pattern: "^https?:\\/\\/.+", message: "Enter a valid web URL starting with https://" },
+  { label: "Currency / Amount", pattern: "^\\d+(\\.\\d{1,2})?$", message: "Enter a valid currency amount (e.g. 19.99)" },
 ];
 
 // Option presets for Task 2: Field Options
@@ -50,16 +53,43 @@ const OPTION_PRESETS = {
     { label: "Satisfied", value: "satisfied" },
     { label: "Neutral", value: "neutral" },
     { label: "Dissatisfied", value: "dissatisfied" },
+    { label: "Very Dissatisfied", value: "very_dissatisfied" },
   ],
   gender: [
     { label: "Male", value: "male" },
     { label: "Female", value: "female" },
-    { label: "Other / Prefer not to say", value: "other" },
+    { label: "Other / Non-binary", value: "other" },
+    { label: "Prefer not to say", value: "prefer_not_to_say" },
+  ],
+  frequency: [
+    { label: "Daily", value: "daily" },
+    { label: "Weekly", value: "weekly" },
+    { label: "Monthly", value: "monthly" },
+    { label: "Yearly", value: "yearly" },
+  ],
+  rating: [
+    { label: "1 Star - Poor", value: "1" },
+    { label: "2 Stars - Fair", value: "2" },
+    { label: "3 Stars - Good", value: "3" },
+    { label: "4 Stars - Very Good", value: "4" },
+    { label: "5 Stars - Excellent", value: "5" },
   ],
 };
 
+// Live Regex Syntax Validator for Task 3
+function validateRegexPattern(pattern) {
+  if (!pattern) return { valid: true };
+  try {
+    new RegExp(pattern);
+    return { valid: true };
+  } catch (err) {
+    return { valid: false, error: err.message };
+  }
+}
+
 function AIInput() {
   const navigate = useNavigate();
+  const toastCounter = useRef(0);
 
   // Generator State
   const [prompt, setPrompt] = useState("");
@@ -73,6 +103,10 @@ function AIInput() {
   const [expandedFieldId, setExpandedFieldId] = useState(null);
   const [activeTab, setActiveTab] = useState("editor"); // 'editor' | 'preview' | 'json'
 
+  // Task 2: Bulk Add Options state
+  const [bulkOptionFieldId, setBulkOptionFieldId] = useState(null);
+  const [bulkOptionText, setBulkOptionText] = useState("");
+
   // Backend API Integration State
   const [apiSaving, setApiSaving] = useState(false);
   const [apiError, setApiError] = useState(null);
@@ -82,7 +116,7 @@ function AIInput() {
   const [toasts, setToasts] = useState([]);
 
   const addToast = (message, type = "success") => {
-    const id = Date.now() + Math.random();
+    const id = ++toastCounter.current;
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -679,12 +713,87 @@ function AIInput() {
     const deletedField = generatedForm?.fields?.find((f) => f.id === fieldId);
     setGeneratedForm((prev) => {
       if (!prev) return prev;
+      const remainingFields = prev.fields.filter((f) => f.id !== fieldId);
+
+      // Clean up any conditional logic referencing the deleted field
+      const cleanedFields = remainingFields.map((f) => {
+        if (!f.showIf) return f;
+
+        // If single condition
+        if (!f.showIf.conditions) {
+          if (f.showIf.field === fieldId) {
+            const { showIf: _removed, ...rest } = f;
+            return rest;
+          }
+          return f;
+        }
+
+        // If compound conditions
+        const filteredConds = f.showIf.conditions.filter((c) => c.field !== fieldId);
+        if (filteredConds.length === 0) {
+          const { showIf: _removed, ...rest } = f;
+          return rest;
+        }
+        return {
+          ...f,
+          showIf: {
+            ...f.showIf,
+            conditions: filteredConds,
+          },
+        };
+      });
+
       return {
         ...prev,
-        fields: prev.fields.filter((f) => f.id !== fieldId),
+        fields: cleanedFields,
       };
     });
     addToast(`Removed field "${deletedField?.label || fieldId}"`, "info");
+  };
+
+  // Task 2: Bulk Add / Import Options
+  const handleBulkAddOptions = (fieldId) => {
+    if (!bulkOptionText.trim()) {
+      setBulkOptionFieldId(null);
+      return;
+    }
+    const lines = bulkOptionText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) return;
+
+    const newOptions = lines.map((line) => {
+      if (line.includes("=") || line.includes(":")) {
+        const parts = line.split(/[=:]/);
+        const lbl = parts[0].trim();
+        const val = parts.slice(1).join("").trim();
+        return { label: lbl, value: val || lbl.toLowerCase().replace(/[^a-z0-9_]/g, "_") };
+      }
+      return {
+        label: line,
+        value: line.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+      };
+    });
+
+    setGeneratedForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.id !== fieldId) return f;
+          return {
+            ...f,
+            options: [...(f.options || []), ...newOptions],
+          };
+        }),
+      };
+    });
+
+    setBulkOptionText("");
+    setBulkOptionFieldId(null);
+    addToast(`Added ${newOptions.length} options!`, "success");
   };
 
   const duplicateField = (fieldId) => {
@@ -1013,46 +1122,51 @@ function AIInput() {
     }
   };
 
- const handleApplyForm = async () => {
-  if (!generatedForm) return;
+  const handleApplyForm = async () => {
+    if (!generatedForm) return;
 
-  setApiSaving(true);
-  setApiError(null);
-  setApiSuccess(null);
+    setApiSaving(true);
+    setApiError(null);
+    setApiSuccess(null);
 
-  try {
-    const result = await saveFormToBackend(generatedForm);
+    try {
+      const result = await saveFormToBackend(generatedForm);
 
-    if (!result.success) {
-      setApiError(result.error || "Failed to save form.");
-      addToast("Could not save form to backend.", "error");
-      return;
+      if (result.success) {
+        setApiSuccess(
+          `Form saved successfully! Slug: ${result.data?.slug}`
+        );
+        addToast("Form saved to MongoDB backend!", "success");
+        navigate("/generated-form", {
+          state: {
+            schema: result.data,
+          },
+        });
+        return;
+      }
+
+      // If backend API is offline or returns an error, schema was saved to local cache
+      setApiError(result.error);
+      addToast("Backend API offline. Form saved to local storage!", "info");
+      navigate("/generated-form", {
+        state: {
+          schema: generatedForm,
+          isOffline: true,
+        },
+      });
+    } catch (error) {
+      console.error("Apply form error:", error);
+      addToast("Opening form in local preview mode.", "info");
+      navigate("/generated-form", {
+        state: {
+          schema: generatedForm,
+          isOffline: true,
+        },
+      });
+    } finally {
+      setApiSaving(false);
     }
-
-    setApiSuccess(
-      `Form saved successfully! Slug: ${result.data?.slug}`
-    );
-
-    addToast("Form saved to MongoDB!", "success");
-
-    // Open the backend-saved schema
-    navigate("/generated-form", {
-      state: {
-        schema: result.data,
-      },
-    });
-  } catch (error) {
-    console.error("Apply form error:", error);
-
-    setApiError(
-      error.message || "Failed to save form."
-    );
-
-    addToast("Failed to save form.", "error");
-  } finally {
-    setApiSaving(false);
-  }
-};
+  };
 
   const handleCopySchemaJson = () => {
     if (!generatedForm) return;
@@ -1099,7 +1213,7 @@ function AIInput() {
         </div>
       </header>
 
-      {/* PROMPT GENERATOR SECTION (TASK 5 & 6) */}
+      {/* PROMPT GENERATOR SECTION */}
       <section className="ai-generator-card">
         <div className="ai-prompt-header">
           <div className="ai-prompt-title">
@@ -1475,6 +1589,12 @@ function AIInput() {
                         <div className="ai-field-header-badges">
                           <span className={`ai-type-pill ${field.type}`}>{field.type}</span>
 
+                          {isSelectOrRadio && (
+                            <span className="ai-opts-badge" title="Options configured">
+                              {hasOptions ? `${field.options.length} options` : "no options"}
+                            </span>
+                          )}
+
                           <span className={`ai-req-pill ${field.required ? "required" : "optional"}`}>
                             {field.required ? "Required" : "Optional"}
                           </span>
@@ -1623,6 +1743,24 @@ function AIInput() {
                                 />
                               </div>
                             </div>
+
+                            {/* CUSTOM REQUIRED MESSAGE IF REQUIRED (TASK 1 & 3) */}
+                            {field.required && (
+                              <div className="ai-form-row" style={{ marginTop: 12 }}>
+                                <div className="ai-form-group" style={{ flex: 1 }}>
+                                  <label>Custom Required Error Message</label>
+                                  <input
+                                    type="text"
+                                    className="ai-input-control"
+                                    value={field.validation?.requiredMessage || ""}
+                                    onChange={(e) =>
+                                      updateValidation(field.id, "requiredMessage", e.target.value)
+                                    }
+                                    placeholder={`e.g. ${field.label || "This field"} is required to proceed`}
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* SECTION 2: FIELD OPTIONS EDITOR (TASK 2) */}
@@ -1631,7 +1769,7 @@ function AIInput() {
                               <div className="ai-editor-section-title">
                                 <span>Options for {field.type === "radio" ? "Radio Buttons" : "Dropdown List"}</span>
                                 <span style={{ fontSize: 12, color: "#64748b" }}>
-                                  Custom label and value supported
+                                  Custom label and value supported (Task 2)
                                 </span>
                               </div>
 
@@ -1673,13 +1811,30 @@ function AIInput() {
                               </div>
 
                               <div className="ai-option-actions">
-                                <button
-                                  type="button"
-                                  className="ai-add-opt-btn"
-                                  onClick={() => addOption(field.id)}
-                                >
-                                  <Plus size={14} /> Add Option
-                                </button>
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                  <button
+                                    type="button"
+                                    className="ai-add-opt-btn"
+                                    onClick={() => addOption(field.id)}
+                                  >
+                                    <Plus size={14} /> Add Option
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="ai-preset-btn"
+                                    onClick={() => {
+                                      setBulkOptionFieldId(
+                                        bulkOptionFieldId === field.id ? null : field.id
+                                      );
+                                      setBulkOptionText("");
+                                    }}
+                                    title="Paste multiple options at once"
+                                  >
+                                    <AlignLeft size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
+                                    {bulkOptionFieldId === field.id ? "Close Bulk Paste" : "Bulk Paste Options"}
+                                  </button>
+                                </div>
 
                                 <div className="ai-preset-options">
                                   <span style={{ fontSize: 12, color: "#64748b" }}>Quick Presets:</span>
@@ -1695,7 +1850,7 @@ function AIInput() {
                                     className="ai-preset-btn"
                                     onClick={() => applyOptionPreset(field.id, "priority")}
                                   >
-                                    Priority Levels
+                                    Priority
                                   </button>
                                   <button
                                     type="button"
@@ -1704,8 +1859,71 @@ function AIInput() {
                                   >
                                     Satisfaction
                                   </button>
+                                  <button
+                                    type="button"
+                                    className="ai-preset-btn"
+                                    onClick={() => applyOptionPreset(field.id, "gender")}
+                                  >
+                                    Gender
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ai-preset-btn"
+                                    onClick={() => applyOptionPreset(field.id, "frequency")}
+                                  >
+                                    Frequency
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ai-preset-btn"
+                                    onClick={() => applyOptionPreset(field.id, "rating")}
+                                  >
+                                    1-5 Rating
+                                  </button>
                                 </div>
                               </div>
+
+                              {/* BULK ADD DRAWER */}
+                              {bulkOptionFieldId === field.id && (
+                                <div className="ai-bulk-add-drawer">
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                    <strong style={{ fontSize: 12.5, color: "#334155" }}>
+                                      Paste options (one option per line):
+                                    </strong>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>
+                                      Format: Label or Label=value
+                                    </span>
+                                  </div>
+                                  <textarea
+                                    className="ai-bulk-textarea"
+                                    rows={4}
+                                    value={bulkOptionText}
+                                    onChange={(e) => setBulkOptionText(e.target.value)}
+                                    placeholder={`Option One\nOption Two\nOption Three=custom_value`}
+                                  />
+                                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                                    <button
+                                      type="button"
+                                      className="ai-generate-btn"
+                                      style={{ padding: "6px 14px", fontSize: 12.5 }}
+                                      onClick={() => handleBulkAddOptions(field.id)}
+                                    >
+                                      Import Pasted Options
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ai-clear-btn"
+                                      style={{ padding: "6px 14px", fontSize: 12.5 }}
+                                      onClick={() => {
+                                        setBulkOptionFieldId(null);
+                                        setBulkOptionText("");
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -1714,16 +1932,28 @@ function AIInput() {
                             <div className="ai-editor-section-title">
                               <span>Validation Rules</span>
                               <span style={{ fontSize: 12, color: "#64748b" }}>
-                                Configure constraints and error messages
+                                Configure constraints, regex, and custom error messages (Task 3)
                               </span>
                             </div>
 
                             <div className="ai-form-row">
+                              {/* EMAIL FORMAT NOTICE */}
+                              {field.type === "email" && (
+                                <div className="ai-form-group" style={{ gridColumn: "span 2" }}>
+                                  <div className="ai-email-notice">
+                                    <Info size={14} color="#3b82f6" />
+                                    <span>
+                                      RFC-standard email format validation is automatically applied to this field.
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* MIN / MAX LENGTH FOR TEXT */}
                               {(field.type === "text" || field.type === "textarea" || field.type === "email") && (
                                 <>
                                   <div className="ai-form-group">
-                                    <label>Min Length</label>
+                                    <label>Min Length (characters)</label>
                                     <input
                                       type="number"
                                       className="ai-input-control"
@@ -1738,7 +1968,7 @@ function AIInput() {
                                     />
                                   </div>
                                   <div className="ai-form-group">
-                                    <label>Max Length</label>
+                                    <label>Max Length (characters)</label>
                                     <input
                                       type="number"
                                       className="ai-input-control"
@@ -1802,9 +2032,26 @@ function AIInput() {
                                 </>
                               )}
 
-                              {/* PATTERN (REGEX) */}
+                              {/* PATTERN (REGEX) WITH LIVE VALIDATION FEEDBACK */}
                               <div className="ai-form-group" style={{ gridColumn: "span 2" }}>
-                                <label>Pattern (Regex Validation)</label>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <label>Pattern (Regex Validation)</label>
+                                  {(() => {
+                                    const pat = field.pattern || field.validation?.pattern;
+                                    if (!pat) return null;
+                                    const status = validateRegexPattern(pat);
+                                    return status.valid ? (
+                                      <span className="ai-regex-valid-badge">
+                                        <CheckCircle2 size={12} /> Valid regular expression
+                                      </span>
+                                    ) : (
+                                      <span className="ai-regex-error-badge" title={status.error}>
+                                        <AlertCircle size={12} /> Syntax error: {status.error}
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
+
                                 <input
                                   type="text"
                                   className="ai-input-control"
@@ -1926,10 +2173,11 @@ function AIInput() {
                                         <option value="equals">equals</option>
                                         <option value="notEquals">does not equal</option>
                                         <option value="in">is one of (in)</option>
+                                        <option value="notIn">is not one of (not in)</option>
                                         <option value="gt">greater than (&gt;)</option>
                                         <option value="lt">less than (&lt;)</option>
-                                        <option value="notEmpty">is not empty</option>
-                                        <option value="empty">is empty</option>
+                                        <option value="notEmpty">is answered (not empty)</option>
+                                        <option value="empty">is blank (empty)</option>
                                       </select>
 
                                       {/* Target Value (Smart Picker) */}
@@ -1937,8 +2185,34 @@ function AIInput() {
                                         const depField = precedingFields.find(
                                           (pf) => pf.id === field.showIf.field
                                         );
-                                        const depOpts = depField?.options;
+                                        const isUnary =
+                                          field.showIf.operator === "notEmpty" ||
+                                          field.showIf.operator === "empty";
 
+                                        if (isUnary) {
+                                          return (
+                                            <div className="ai-unary-placeholder">
+                                              <span>Checks field presence</span>
+                                            </div>
+                                          );
+                                        }
+
+                                        if (depField?.type === "checkbox") {
+                                          return (
+                                            <select
+                                              className="ai-select-control"
+                                              value={field.showIf.value ?? "true"}
+                                              onChange={(e) =>
+                                                updateSingleCondition(field.id, "value", e.target.value)
+                                              }
+                                            >
+                                              <option value="true">Checked (Yes)</option>
+                                              <option value="false">Unchecked (No)</option>
+                                            </select>
+                                          );
+                                        }
+
+                                        const depOpts = depField?.options;
                                         if (depOpts && depOpts.length > 0) {
                                           return (
                                             <select
@@ -2003,6 +2277,8 @@ function AIInput() {
                                           const depField = precedingFields.find(
                                             (pf) => pf.id === subCond.field
                                           );
+                                          const isUnary =
+                                            subCond.operator === "notEmpty" || subCond.operator === "empty";
                                           const depOpts = depField?.options;
 
                                           return (
@@ -2032,12 +2308,29 @@ function AIInput() {
                                                 <option value="equals">equals</option>
                                                 <option value="notEquals">does not equal</option>
                                                 <option value="in">is one of (in)</option>
+                                                <option value="notIn">is not one of (not in)</option>
                                                 <option value="gt">greater than (&gt;)</option>
                                                 <option value="lt">less than (&lt;)</option>
-                                                <option value="notEmpty">not empty</option>
+                                                <option value="notEmpty">is answered (not empty)</option>
+                                                <option value="empty">is blank (empty)</option>
                                               </select>
 
-                                              {depOpts && depOpts.length > 0 ? (
+                                              {isUnary ? (
+                                                <div className="ai-unary-placeholder">
+                                                  <span>Presence check</span>
+                                                </div>
+                                              ) : depField?.type === "checkbox" ? (
+                                                <select
+                                                  className="ai-select-control"
+                                                  value={subCond.value ?? "true"}
+                                                  onChange={(e) =>
+                                                    updateCompoundConditionRow(field.id, subIdx, "value", e.target.value)
+                                                  }
+                                                >
+                                                  <option value="true">Checked (Yes)</option>
+                                                  <option value="false">Unchecked (No)</option>
+                                                </select>
+                                              ) : depOpts && depOpts.length > 0 ? (
                                                 <select
                                                   className="ai-select-control"
                                                   value={subCond.value ?? ""}
@@ -2140,7 +2433,7 @@ function AIInput() {
 
               <DynamicForm
                 schema={generatedForm}
-                onSubmitSuccess={(data) => {
+                onSubmitSuccess={(_data) => {
                   addToast("Test submission successful! Review payload below.", "success");
                 }}
               />

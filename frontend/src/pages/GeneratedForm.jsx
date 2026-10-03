@@ -18,11 +18,26 @@ function GeneratedForm() {
       return saved.length > 0 ? saved[0] : null;
     })();
 
+  const isOffline = Boolean(location.state?.isOffline);
+
   const handleCopyJson = () => {
     if (!schema) return;
     navigator.clipboard.writeText(JSON.stringify(schema, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadJson = () => {
+    if (!schema) return;
+    const blob = new Blob([JSON.stringify(schema, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${schema.slug || schema.id || "forma-schema"}.json`;
+    a.click();
+    URL.revokeObjectURL(a);
   };
 
   if (!schema) {
@@ -53,16 +68,44 @@ function GeneratedForm() {
   return (
     <div className="generated-form-page">
       <div className="generated-form-topbar">
-        <button
-          type="button"
-          className="back-to-ai-btn"
-          onClick={() => navigate("/ai-input")}
-        >
-          <ArrowLeft size={16} />
-          Back to AI Studio
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            type="button"
+            className="back-to-ai-btn"
+            onClick={() => navigate("/ai-input")}
+          >
+            <ArrowLeft size={16} />
+            Back to AI Studio
+          </button>
+
+          {isOffline && (
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                padding: "4px 10px",
+                borderRadius: 20,
+                background: "#fef3c7",
+                color: "#92400e",
+                border: "1px solid #fde68a",
+              }}
+            >
+              Offline / Local Mode
+            </span>
+          )}
+        </div>
 
         <div className="generated-topbar-actions">
+          <button
+            type="button"
+            className="schema-action-btn"
+            onClick={handleDownloadJson}
+            title="Download JSON file"
+          >
+            <Sparkles size={14} />
+            <span>Download Schema</span>
+          </button>
+
           <button
             type="button"
             className="schema-action-btn"

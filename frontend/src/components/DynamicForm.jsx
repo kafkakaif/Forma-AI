@@ -15,143 +15,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 
+import { evaluateConditionRule } from "../utils/conditionEvaluator";
 import "./DynamicForm.css";
-
-/**
- * Robust condition evaluator matching backend shared/rules.js
- */
-export function evaluateConditionRule(cond, values) {
-  if (!cond) return true;
-
-  // Multi-rule compound: ALL (AND)
-  const allList =
-    cond.all ||
-    (cond.operator === "and" && cond.conditions);
-
-  if (Array.isArray(allList) && allList.length > 0) {
-    return allList.every((c) =>
-      evaluateConditionRule(c, values)
-    );
-  }
-
-  // Multi-rule compound: ANY (OR)
-  const anyList =
-    cond.any ||
-    (cond.operator === "or" && cond.conditions);
-
-  if (Array.isArray(anyList) && anyList.length > 0) {
-    return anyList.some((c) =>
-      evaluateConditionRule(c, values)
-    );
-  }
-
-  const depField =
-    cond.field || cond.dependentField;
-
-  if (!depField) return true;
-
-  const actual = values?.[depField];
-
-  const op =
-    cond.operator ||
-    ("equals" in cond
-      ? "equals"
-      : "notEquals" in cond
-      ? "notEquals"
-      : "in" in cond
-      ? "in"
-      : "notIn" in cond
-      ? "notIn"
-      : "gt" in cond
-      ? "gt"
-      : "lt" in cond
-      ? "lt"
-      : "exists" in cond
-      ? "exists"
-      : "equals");
-
-  const target =
-    cond.value !== undefined
-      ? cond.value
-      : cond[op];
-
-  switch (op) {
-    case "equals":
-      return (
-        String(actual ?? "").toLowerCase() ===
-        String(target ?? "").toLowerCase()
-      );
-
-    case "notEquals":
-      return (
-        String(actual ?? "").toLowerCase() !==
-        String(target ?? "").toLowerCase()
-      );
-
-    case "in":
-    case "contains":
-      if (Array.isArray(target)) {
-        return target.some(
-          (t) =>
-            String(t).toLowerCase() ===
-            String(actual ?? "").toLowerCase()
-        );
-      }
-
-      return String(target || "")
-        .split(",")
-        .map((s) =>
-          s.trim().toLowerCase()
-        )
-        .includes(
-          String(actual ?? "").toLowerCase()
-        );
-
-    case "notIn":
-      if (Array.isArray(target)) {
-        return !target.some(
-          (t) =>
-            String(t).toLowerCase() ===
-            String(actual ?? "").toLowerCase()
-        );
-      }
-
-      return !String(target || "")
-        .split(",")
-        .map((s) =>
-          s.trim().toLowerCase()
-        )
-        .includes(
-          String(actual ?? "").toLowerCase()
-        );
-
-    case "gt":
-      return Number(actual) > Number(target);
-
-    case "lt":
-      return Number(actual) < Number(target);
-
-    case "notEmpty":
-    case "exists":
-      return (
-        actual !== undefined &&
-        actual !== null &&
-        actual !== "" &&
-        actual !== false
-      );
-
-    case "empty":
-      return (
-        actual === undefined ||
-        actual === null ||
-        actual === "" ||
-        actual === false
-      );
-
-    default:
-      return true;
-  }
-}
 
 function DynamicForm({
   schema,
@@ -166,6 +31,12 @@ function DynamicForm({
 
   const [submitError, setSubmitError] =
     useState("");
+
+  const [submitNotice, setSubmitNotice] =
+    useState("");
+
+  const [validationAttempted, setValidationAttempted] =
+    useState(false);
 
   /**
    * Normalize fields:
@@ -361,20 +232,38 @@ function DynamicForm({
       );
 
       setSubmittedData(cleanData);
+      setSubmitNotice("Submitted directly to backend MongoDB successfully!");
 
       if (onSubmitSuccess) {
         onSubmitSuccess(cleanData);
       }
     } catch (error) {
-      console.error(
-        "Form submission error:",
-        error
-      );
+      console.warn("Backend unavailable for submission:", error);
 
-      setSubmitError(
-        error.message ||
-          "Unable to submit the form."
-      );
+      // Resilient Fallback: save submission in local storage for offline preview/testing
+      try {
+        const localList = JSON.parse(
+          localStorage.getItem("forma_local_submissions") || "[]"
+        );
+        localList.unshift({
+          id: `sub_${Date.now()}`,
+          formId: schema?.formId || schema?.slug || schema?.id || "form",
+          title: schema?.title || "Form Submission",
+          values: cleanData,
+          createdAt: new Date().toISOString(),
+        });
+        localStorage.setItem(
+          "forma_local_submissions",
+          JSON.stringify(localList.slice(0, 50))
+        );
+        setSubmittedData(cleanData);
+        setSubmitNotice("Notice: Backend server (http://localhost:5000) was unreachable. Submission recorded locally in offline mode!");
+        if (onSubmitSuccess) {
+          onSubmitSuccess(cleanData);
+        }
+      } catch {
+        setSubmitError(error.message || "Unable to submit the form.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -387,6 +276,8 @@ function DynamicForm({
     reset();
     setSubmittedData(null);
     setSubmitError("");
+    setSubmitNotice("");
+    setValidationAttempted(false);
   };
 
   /**
@@ -980,9 +871,38 @@ function DynamicForm({
 
         <form
           onSubmit={handleSubmit(
-            handleFormSubmit
+            (data) => {
+              setValidationAttempted(false);
+              handleFormSubmit(data);
+            },
+            () => {
+              setValidationAttempted(true);
+            }
           )}
         >
+          {validationAttempted && Object.keys(errors).length > 0 && (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: "12px 16px",
+                borderRadius: 10,
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                color: "#991b1b",
+                fontSize: 13.5,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <AlertCircle size={16} />
+              <span>
+                Please correct the {Object.keys(errors).length} highlighted validation error
+                {Object.keys(errors).length > 1 ? "s" : ""} below before submitting.
+              </span>
+            </div>
+          )}
+
           <div className="forma-fields-list">
             {flatFields.map((field) =>
               renderField(field)
@@ -1075,9 +995,7 @@ function DynamicForm({
                 color: "#166534",
               }}
             >
-              Your submission was
-              successfully validated
-              and sent to the backend.
+              {submitNotice || "Your submission was successfully validated and recorded."}
             </p>
 
             <pre className="forma-submission-data-preview">
