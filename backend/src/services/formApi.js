@@ -5,16 +5,16 @@ const API_BASE =
   import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 /**
- * Convert frontend conditional logic into the backend rule format.
+ * Convert frontend conditional logic into backend rule format.
  *
- * Frontend format:
+ * Frontend:
  * {
  *   field: "accidentOccurred",
  *   operator: "equals",
  *   value: "yes"
  * }
  *
- * Backend format:
+ * Backend:
  * {
  *   field: "accidentOccurred",
  *   equals: "yes"
@@ -106,7 +106,7 @@ function convertConditionToBackend(condition) {
 }
 
 /**
- * Format frontend form schema into backend-compatible schema.
+ * Convert frontend form schema into backend-compatible format.
  */
 export function convertToBackendFormat(schema) {
   const baseSlug =
@@ -116,7 +116,8 @@ export function convertToBackendFormat(schema) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
-  const slug = `${baseSlug}-${Date.now().toString(36)}`;
+  const slug =
+    `${baseSlug}-${Date.now().toString(36)}`;
 
   const fields = (schema.fields || []).map((f) => {
     const fieldObj = {
@@ -127,7 +128,7 @@ export function convertToBackendFormat(schema) {
 
       label: f.label || "Untitled Field",
 
-      // Keep the real frontend field type
+      // Preserve the actual field type
       type: [
         "text",
         "email",
@@ -147,12 +148,14 @@ export function convertToBackendFormat(schema) {
 
       helpText: f.helpText || "",
 
-      // Backend currently stores options as strings
+      // Backend stores options as strings
       options: Array.isArray(f.options)
         ? f.options.map((opt) =>
             typeof opt === "string"
               ? opt
-              : opt?.value || opt?.label || ""
+              : opt?.value ||
+                opt?.label ||
+                ""
           )
         : [],
     };
@@ -188,7 +191,10 @@ export function convertToBackendFormat(schema) {
 
     // Conditional visibility rules
     if (f.showIf) {
-      fieldObj.showIf = convertConditionToBackend(f.showIf);
+      fieldObj.showIf =
+        convertConditionToBackend(
+          f.showIf
+        );
     }
 
     return fieldObj;
@@ -196,15 +202,31 @@ export function convertToBackendFormat(schema) {
 
   return {
     slug,
-    title: schema.title || "Generated Form",
-    description: schema.description || "",
-    version: schema.version || 1,
+
+    title:
+      schema.title ||
+      "Generated Form",
+
+    description:
+      schema.description ||
+      "",
+
+    version:
+      schema.version ||
+      1,
 
     sections: [
       {
         id: "section_main",
-        title: schema.title || "General",
-        description: schema.description || "",
+
+        title:
+          schema.title ||
+          "General",
+
+        description:
+          schema.description ||
+          "",
+
         fields,
       },
     ],
@@ -212,19 +234,23 @@ export function convertToBackendFormat(schema) {
 }
 
 /**
- * Check whether the backend server is responsive.
+ * Check whether backend is running.
  */
 export async function checkBackendHealth() {
-  const controller = new AbortController();
+  const controller =
+    new AbortController();
 
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, 2000);
 
   try {
-    const res = await fetch(`${API_BASE}/health`, {
-      signal: controller.signal,
-    });
+    const res = await fetch(
+      `${API_BASE}/health`,
+      {
+        signal: controller.signal,
+      }
+    );
 
     clearTimeout(timeoutId);
 
@@ -235,10 +261,13 @@ export async function checkBackendHealth() {
       };
     }
 
-    const data = await res.json();
+    const data =
+      await res.json();
 
     return {
-      healthy: data.status === "ok",
+      healthy:
+        data.status === "ok",
+
       status: res.status,
     };
   } catch (err) {
@@ -252,34 +281,54 @@ export async function checkBackendHealth() {
 }
 
 /**
- * Save a form schema to backend.
+ * Save form to backend.
  * POST /api/forms
  */
-export async function saveFormToBackend(schema) {
-  const backendPayload = convertToBackendFormat(schema);
+export async function saveFormToBackend(
+  schema
+) {
+  const backendPayload =
+    convertToBackendFormat(
+      schema
+    );
 
-  const controller = new AbortController();
+  const controller =
+    new AbortController();
 
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, 4000);
+  const timeoutId = setTimeout(
+    () => {
+      controller.abort();
+    },
+    4000
+  );
 
   try {
-    const res = await fetch(`${API_BASE}/forms`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(backendPayload),
-      signal: controller.signal,
-    });
+    const res = await fetch(
+      `${API_BASE}/forms`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify(
+          backendPayload
+        ),
+
+        signal:
+          controller.signal,
+      }
+    );
 
     clearTimeout(timeoutId);
 
     let data = {};
 
     try {
-      data = await res.json();
+      data =
+        await res.json();
     } catch {
       data = {};
     }
@@ -287,7 +336,10 @@ export async function saveFormToBackend(schema) {
     if (!res.ok) {
       return {
         success: false,
-        status: res.status,
+
+        status:
+          res.status,
+
         error:
           data.error ||
           data.message ||
@@ -295,11 +347,16 @@ export async function saveFormToBackend(schema) {
       };
     }
 
-    // Save locally too for accessibility/offline fallback
+    // Save locally too
     saveFormToLocalCache({
       ...schema,
-      slug: data.slug || backendPayload.slug,
-      _id: data._id,
+
+      slug:
+        data.slug ||
+        backendPayload.slug,
+
+      _id:
+        data._id,
     });
 
     return {
@@ -310,27 +367,38 @@ export async function saveFormToBackend(schema) {
   } catch (err) {
     clearTimeout(timeoutId);
 
-    // Backend unavailable → preserve work locally
-    saveFormToLocalCache(schema);
+    // Backend unavailable
+    // Preserve the form locally
+    saveFormToLocalCache(
+      schema
+    );
 
     return {
       success: false,
+
       isOffline: true,
-      error: `Could not reach backend API at ${API_BASE}. (${err.message}). Form saved locally.`,
+
+      error:
+        `Could not reach backend API at ${API_BASE}. ` +
+        `(${err.message}). Form saved locally.`,
     };
   }
 }
 
 /**
- * Fetch all forms from backend.
+ * Get all forms from backend.
  * GET /api/forms
  */
 export async function getBackendForms() {
   try {
-    const res = await fetch(`${API_BASE}/forms`);
+    const res = await fetch(
+      `${API_BASE}/forms`
+    );
 
     if (!res.ok) {
-      throw new Error(`HTTP error ${res.status}`);
+      throw new Error(
+        `HTTP error ${res.status}`
+      );
     }
 
     return await res.json();
@@ -345,21 +413,30 @@ export async function getBackendForms() {
 }
 
 /**
- * Fetch one form by ID or slug.
+ * Get one form.
  * GET /api/forms/:id
  */
-export async function getBackendForm(idOrSlug) {
+export async function getBackendForm(
+  idOrSlug
+) {
   try {
-    const res = await fetch(
-      `${API_BASE}/forms/${encodeURIComponent(idOrSlug)}`
-    );
+    const res =
+      await fetch(
+        `${API_BASE}/forms/${encodeURIComponent(
+          idOrSlug
+        )}`
+      );
 
-    const data = await res.json();
+    const data =
+      await res.json();
 
     if (!res.ok) {
       return {
         success: false,
-        status: res.status,
+
+        status:
+          res.status,
+
         error:
           data.error ||
           data.message ||
@@ -369,7 +446,10 @@ export async function getBackendForm(idOrSlug) {
 
     return {
       success: true,
-      status: res.status,
+
+      status:
+        res.status,
+
       data,
     };
   } catch (err) {
@@ -381,11 +461,86 @@ export async function getBackendForm(idOrSlug) {
 }
 
 /**
- * Local storage helpers
+ * Get all submissions.
+ * GET /api/submissions
  */
-export function saveFormToLocalCache(schema) {
+export async function getBackendSubmissions() {
   try {
-    const existing = getLocalForms();
+    const res =
+      await fetch(
+        `${API_BASE}/submissions`
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.error ||
+          `HTTP error ${res.status}`
+      );
+    }
+
+    return data;
+  } catch (err) {
+    console.error(
+      "Failed to fetch backend submissions:",
+      err
+    );
+
+    return [];
+  }
+}
+
+/**
+ * Get one submission.
+ * GET /api/submissions/:id
+ */
+export async function getBackendSubmission(
+  id
+) {
+  try {
+    const res =
+      await fetch(
+        `${API_BASE}/submissions/${encodeURIComponent(
+          id
+        )}`
+      );
+
+    const data =
+      await res.json();
+
+    if (!res.ok) {
+      return {
+        success: false,
+
+        error:
+          data.error ||
+          `HTTP error ${res.status}`,
+      };
+    }
+
+    return {
+      success: true,
+      data,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message,
+    };
+  }
+}
+
+/**
+ * Save form to local storage.
+ */
+export function saveFormToLocalCache(
+  schema
+) {
+  try {
+    const existing =
+      getLocalForms();
 
     const id =
       schema.id ||
@@ -395,8 +550,11 @@ export function saveFormToLocalCache(schema) {
     const updated = [
       {
         ...schema,
+
         id,
-        updatedAt: new Date().toISOString(),
+
+        updatedAt:
+          new Date().toISOString(),
       },
 
       ...existing.filter(
@@ -418,67 +576,20 @@ export function saveFormToLocalCache(schema) {
   }
 }
 
+/**
+ * Get forms saved locally.
+ */
 export function getLocalForms() {
   try {
-    const data = localStorage.getItem(
-      "forma_saved_forms"
-    );
+    const data =
+      localStorage.getItem(
+        "forma_saved_forms"
+      );
 
     return data
       ? JSON.parse(data)
       : [];
   } catch {
     return [];
-  }
-}
-/**
- * Fetch all submissions from backend.
- * GET /api/submissions
- */
-export async function getBackendSubmissions() {
-  try {
-    const res = await fetch(`${API_BASE}/submissions`);
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        data.error ||
-          data.message ||
-          `HTTP error ${res.status}`
-      );
-    }
-
-    return Array.isArray(data) ? data : [];
-  } catch (err) {
-    console.error("Failed to fetch backend submissions:", err);
-    return [];
-  }
-}
-
-/**
- * Fetch one submission by ID.
- * GET /api/submissions/:id
- */
-export async function getBackendSubmission(id) {
-  try {
-    const res = await fetch(
-      `${API_BASE}/submissions/${encodeURIComponent(id)}`
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        data.error ||
-          data.message ||
-          `HTTP error ${res.status}`
-      );
-    }
-
-    return data;
-  } catch (err) {
-    console.error("Failed to fetch submission:", err);
-    return null;
   }
 }

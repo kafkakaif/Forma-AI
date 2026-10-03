@@ -1,3 +1,5 @@
+import aiRoutes from "./routes/aiRoutes.js";
+import submissionRoutes from "./routes/submissionRoutes.js";
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -19,6 +21,8 @@ app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/forms", formRoutes);
+app.use("/api/submissions", submissionRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use((req, res) => res.status(404).json({ error: `No route for ${req.method} ${req.path}` }));
 

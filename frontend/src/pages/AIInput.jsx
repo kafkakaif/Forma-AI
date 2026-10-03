@@ -608,49 +608,106 @@ function AIInput() {
   // ----------------------------------------------------
   // GENERATION HANDLER WITH ANIMATED STEPS (TASK 5 & 6)
   // ----------------------------------------------------
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setPromptError(null);
     setGenerationError(null);
 
-    // Empty Prompt scenario (Task 5)
+    // Empty prompt
     if (!prompt || !prompt.trim()) {
-      setPromptError("Please describe the form you want to create in the prompt box above.");
+      setPromptError(
+        "Please describe the form you want to create in the prompt box above."
+      );
       return;
     }
 
-    // Invalid / Too short scenario (Task 5)
+    // Prompt too short
     if (prompt.trim().length < 4) {
-      setPromptError("Prompt is too brief. Please enter at least 4 characters describing your form needs.");
+      setPromptError(
+        "Prompt is too brief. Please enter at least 4 characters describing your form needs."
+      );
       return;
     }
 
     setLoading(true);
     setGenerationStep(1);
 
-    // Step 1: Analyzing
-    setTimeout(() => {
+    try {
+      // Step 1: Semantic Intent Analysis
+      await new Promise((resolve) => setTimeout(resolve, 400));
       setGenerationStep(2);
-    }, 400);
 
-    // Step 2: Synthesizing
-    setTimeout(() => {
-      setGenerationStep(3);
-    }, 850);
+      // Step 2: Call the backend AI service
+      const response = await fetch(
+        "http://localhost:5000/api/ai/generate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: prompt.trim(),
+          }),
+        }
+      );
 
-    // Step 3: Finalizing schema
-    setTimeout(() => {
+      let result = {};
+
       try {
-        const schema = generateFormSchema(prompt);
-        setGeneratedForm(schema);
-        setLoading(false);
-        setGenerationStep(4);
-        setActiveTab("editor");
-        addToast(`Form "${schema.title}" generated successfully with ${schema.fields.length} fields!`, "success");
-      } catch (err) {
-        setLoading(false);
-        setGenerationError("Failed to generate form schema: " + err.message);
+        result = await response.json();
+      } catch {
+        throw new Error(
+          "Backend returned an invalid response."
+        );
       }
-    }, 1300);
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "Failed to generate form."
+        );
+      }
+
+      // Step 3: Validation & Options Setup
+      setGenerationStep(3);
+
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      const schema = result.schema;
+
+      if (!schema || !Array.isArray(schema.fields)) {
+        throw new Error(
+          "Backend returned an invalid form schema."
+        );
+      }
+
+      // Step 4: Conditional Logic Trees
+      setGenerationStep(4);
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // Pass the backend-generated schema to the existing editor
+      setGeneratedForm(schema);
+      setLoading(false);
+      setActiveTab("editor");
+
+      addToast(
+        `Form "${schema.title}" generated successfully with ${schema.fields.length} fields!`,
+        "success"
+      );
+    } catch (error) {
+      console.error("AI form generation error:", error);
+
+      setLoading(false);
+      setGenerationStep(0);
+
+      setGenerationError(
+        error.message || "Failed to generate form."
+      );
+
+      addToast(
+        "AI form generation failed.",
+        "error"
+      );
+    }
   };
 
   const handleExamplePrompt = (exampleText) => {

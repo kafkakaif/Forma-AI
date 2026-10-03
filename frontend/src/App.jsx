@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-
+import MyForms from "./pages/MyForms";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import InsuranceClaim from "./pages/InsuranceClaim";
+import Analytics from "./pages/Analytics";
 
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
@@ -66,13 +67,9 @@ function App() {
 
           {/* Team Pages */}
           <Route
-            path="/forms"
-            element={
-              <div style={{ padding: "40px" }}>
-                Forms page will be connected here.
-              </div>
-            }
-          />
+  path="/forms"
+  element={<MyForms />}
+/>
 
           <Route
             path="/templates"
@@ -85,13 +82,9 @@ function App() {
           />
 
           <Route
-            path="/analytics"
-            element={
-              <div style={{ padding: "40px" }}>
-                Analytics page will be connected here.
-              </div>
-            }
-          />
+  path="/analytics"
+  element={<Analytics />}
+/>
 
         </Route>
 
