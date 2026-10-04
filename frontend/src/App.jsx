@@ -1,4 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from "react-router-dom";
+
 import MyForms from "./pages/MyForms";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -18,28 +25,60 @@ import GeneratedForm from "./pages/GeneratedForm";
 
 import "./App.css";
 
+/*
+ * Protect all application pages.
+ * If the user is not logged in, send them to /login.
+ * If logged in, render the global Layout and the current page.
+ */
+function ProtectedLayout() {
+  const isLoggedIn =
+    localStorage.getItem("forma_logged_in") === "true";
+
+  if (!isLoggedIn) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
-
       <Routes>
+        {/* =====================================================
+            AUTHENTICATION / PUBLIC PAGES
+        ====================================================== */}
 
-        {/* ================= AUTHENTICATION ================= */}
+        <Route
+          path="/login"
+          element={<Login />}
+        />
 
-        <Route path="/login" element={<Login />} />
-
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/insurance-claim" element={<InsuranceClaim />} />
+        <Route
+          path="/signup"
+          element={<Signup />}
+        />
 
         <Route
           path="/forgot-password"
           element={<ForgotPassword />}
         />
 
-        {/* ================= APPLICATION ================= */}
+        {/* Public insurance claim page */}
+        <Route
+          path="/insurance-claim"
+          element={<InsuranceClaim />}
+        />
 
-        <Route element={<Layout />}>
+        {/* =====================================================
+            PROTECTED APPLICATION
+        ====================================================== */}
 
+        <Route element={<ProtectedLayout />}>
           <Route
             path="/dashboard"
             element={<Dashboard />}
@@ -56,20 +95,9 @@ function App() {
           />
 
           <Route
-            path="/profile"
-            element={<Profile />}
+            path="/forms"
+            element={<MyForms />}
           />
-
-          <Route
-            path="/settings"
-            element={<Settings />}
-          />
-
-          {/* Team Pages */}
-          <Route
-  path="/forms"
-  element={<MyForms />}
-/>
 
           <Route
             path="/templates"
@@ -82,26 +110,45 @@ function App() {
           />
 
           <Route
-  path="/analytics"
-  element={<Analytics />}
-/>
+            path="/analytics"
+            element={<Analytics />}
+          />
 
+          <Route
+            path="/profile"
+            element={<Profile />}
+          />
+
+          <Route
+            path="/settings"
+            element={<Settings />}
+          />
         </Route>
 
-        {/* ================= DEFAULT ================= */}
+        {/* =====================================================
+            DEFAULT ROUTES
+        ====================================================== */}
 
         <Route
           path="/"
-          element={<Navigate to="/login" replace />}
+          element={
+            <Navigate
+              to="/login"
+              replace
+            />
+          }
         />
 
         <Route
           path="*"
-          element={<Navigate to="/login" replace />}
+          element={
+            <Navigate
+              to="/login"
+              replace
+            />
+          }
         />
-
       </Routes>
-
     </BrowserRouter>
   );
 }

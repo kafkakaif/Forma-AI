@@ -19,8 +19,11 @@ const Layout = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    navigate("/login");
-  };
+  localStorage.removeItem("forma_logged_in");
+  localStorage.removeItem("forma_current_user");
+
+  navigate("/login");
+};
 
   return (
     <div className="app-layout">

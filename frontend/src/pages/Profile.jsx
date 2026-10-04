@@ -1,873 +1,916 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Home,
-  FileText,
-  LayoutTemplate,
-  Send,
-  BarChart3,
-  User,
-  Settings,
-  HelpCircle,
-  Search,
-  Bell,
-  ChevronDown,
-  Camera,
-  Pencil,
+  UserRound,
   Mail,
   Phone,
   MapPin,
-  Shield,
-  SlidersHorizontal,
-  Activity,
-  Lock,
-  X,
+  BriefcaseBusiness,
+  GraduationCap,
+  Code2,
+  Pencil,
   Save,
-  LogOut,
-  Sparkles,
+  X,
+  Plus,
 } from "lucide-react";
 
-import "./Profile.css";
-
-const Profile = () => {
-  const [activeTab, setActiveTab] = useState("Overview");
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [savedMessage, setSavedMessage] = useState("");
-
-  const [profile, setProfile] = useState({
-    name: "Kaif Mohammed",
-    role: "Student",
-    branch: "Information Technology",
-    email: "kaif@example.com",
+function getInitialProfile() {
+  const emptyProfile = {
+    name: "",
+    email: "",
     phone: "",
     location: "",
-    bio: "Passionate about building intelligent solutions and exploring AI, full-stack development, and real-world problem solving. Currently working on Forma AI – an AI-Augmented Dynamic Form Engine.",
-  });
-
-  const [editForm, setEditForm] = useState(profile);
-
-  const tabs = [
-    { name: "Overview", icon: User },
-    { name: "Personal Info", icon: User },
-    { name: "Security", icon: Shield },
-    { name: "Preferences", icon: SlidersHorizontal },
-    { name: "Activity", icon: Activity },
-  ];
-
-  const handleEditChange = (e) => {
-    setEditForm({
-      ...editForm,
-      [e.target.name]: e.target.value,
-    });
+    role: "",
+    education: "",
+    bio: "",
+    skills: [],
   };
 
-  const saveProfile = () => {
-    setProfile(editForm);
-    setShowEditModal(false);
-    setSavedMessage("Profile updated successfully.");
+  try {
+    const savedProfile = JSON.parse(
+      localStorage.getItem("forma_profile") || "null"
+    );
 
-    setTimeout(() => {
-      setSavedMessage("");
-    }, 3000);
+    const currentUser = JSON.parse(
+      localStorage.getItem("forma_current_user") || "null"
+    );
+
+    const storedUser = JSON.parse(
+      localStorage.getItem("forma_user") || "null"
+    );
+
+    const user = currentUser || storedUser || {};
+
+    return {
+      ...emptyProfile,
+      ...(savedProfile || {}),
+      name: savedProfile?.name || user.name || "",
+      email: savedProfile?.email || user.email || "",
+      skills: Array.isArray(savedProfile?.skills)
+        ? savedProfile.skills
+        : [],
+    };
+  } catch (error) {
+    console.error("Unable to load profile:", error);
+    return emptyProfile;
+  }
+}
+
+function Profile() {
+  const [profile, setProfile] = useState(getInitialProfile);
+  const [editMode, setEditMode] = useState(false);
+  const [skillInput, setSkillInput] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setProfile(getInitialProfile());
+  }, []);
+
+  const initials = useMemo(() => {
+    const name = profile.name?.trim();
+
+    if (!name) {
+      return "U";
+    }
+
+    return name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("");
+  }, [profile.name]);
+
+  const updateField = (field, value) => {
+    setProfile((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const addSkill = () => {
+    const skill = skillInput.trim();
+
+    if (!skill) {
+      return;
+    }
+
+    const alreadyExists = profile.skills.some(
+      (item) => item.toLowerCase() === skill.toLowerCase()
+    );
+
+    if (alreadyExists) {
+      setSkillInput("");
+      return;
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      skills: [...prev.skills, skill],
+    }));
+
+    setSkillInput("");
+  };
+
+  const removeSkill = (skillToRemove) => {
+    setProfile((prev) => ({
+      ...prev,
+      skills: prev.skills.filter(
+        (skill) => skill !== skillToRemove
+      ),
+    }));
+  };
+
+  const handleSkillKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addSkill();
+    }
+  };
+
+  const handleSave = () => {
+    try {
+      const cleanedProfile = {
+        ...profile,
+        name: profile.name.trim(),
+        email: profile.email.trim(),
+        phone: profile.phone.trim(),
+        location: profile.location.trim(),
+        role: profile.role.trim(),
+        education: profile.education.trim(),
+        bio: profile.bio.trim(),
+        skills: profile.skills.map((skill) => skill.trim()).filter(Boolean),
+      };
+
+      localStorage.setItem(
+        "forma_profile",
+        JSON.stringify(cleanedProfile)
+      );
+
+      const currentUser = JSON.parse(
+        localStorage.getItem("forma_current_user") || "null"
+      );
+
+      if (currentUser) {
+        localStorage.setItem(
+          "forma_current_user",
+          JSON.stringify({
+            ...currentUser,
+            name: cleanedProfile.name,
+            email: cleanedProfile.email,
+          })
+        );
+      }
+
+      const storedUser = JSON.parse(
+        localStorage.getItem("forma_user") || "null"
+      );
+
+      if (storedUser) {
+        localStorage.setItem(
+          "forma_user",
+          JSON.stringify({
+            ...storedUser,
+            name: cleanedProfile.name,
+            email: cleanedProfile.email,
+          })
+        );
+      }
+
+      setProfile(cleanedProfile);
+      setEditMode(false);
+      setMessage("Profile updated successfully.");
+
+      setTimeout(() => {
+        setMessage("");
+      }, 2500);
+    } catch (error) {
+      console.error("Profile save failed:", error);
+      setMessage("Unable to save profile.");
+
+      setTimeout(() => {
+        setMessage("");
+      }, 2500);
+    }
+  };
+
+  const handleCancel = () => {
+    setProfile(getInitialProfile());
+    setSkillInput("");
+    setEditMode(false);
+    setMessage("");
+  };
+
+  const styles = {
+    page: {
+      minHeight: "100%",
+      padding: "32px",
+      boxSizing: "border-box",
+      background: "#f8f9ff",
+    },
+
+    container: {
+      maxWidth: "1180px",
+      margin: "0 auto",
+    },
+
+    header: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: "24px",
+      marginBottom: "26px",
+    },
+
+    eyebrow: {
+      display: "block",
+      fontSize: "13px",
+      fontWeight: 600,
+      color: "#6366f1",
+      marginBottom: "8px",
+    },
+
+    title: {
+      margin: 0,
+      fontSize: "32px",
+      lineHeight: 1.15,
+      color: "#18233f",
+      fontWeight: 700,
+    },
+
+    description: {
+      margin: "9px 0 0",
+      color: "#64748b",
+      fontSize: "15px",
+      lineHeight: 1.6,
+      maxWidth: "650px",
+    },
+
+    actionGroup: {
+      display: "flex",
+      gap: "10px",
+      flexShrink: 0,
+    },
+
+    editButton: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "8px",
+      border: "none",
+      background: "#5b46f1",
+      color: "#fff",
+      padding: "11px 16px",
+      borderRadius: "10px",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+    },
+
+    cancelButton: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "8px",
+      border: "1px solid #dbe1ee",
+      background: "#fff",
+      color: "#475569",
+      padding: "11px 16px",
+      borderRadius: "10px",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+    },
+
+    saveButton: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "8px",
+      border: "none",
+      background: "#5b46f1",
+      color: "#fff",
+      padding: "11px 16px",
+      borderRadius: "10px",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+    },
+
+    message: {
+      marginBottom: "18px",
+      background: "#ecfdf3",
+      border: "1px solid #bbf7d0",
+      color: "#166534",
+      borderRadius: "10px",
+      padding: "11px 14px",
+      fontSize: "14px",
+      fontWeight: 500,
+    },
+
+    hero: {
+      background: "#fff",
+      border: "1px solid #e6eaf2",
+      borderRadius: "18px",
+      padding: "26px",
+      display: "flex",
+      alignItems: "center",
+      gap: "20px",
+      boxShadow: "0 5px 20px rgba(15, 23, 42, 0.04)",
+      marginBottom: "20px",
+    },
+
+    avatar: {
+      width: "82px",
+      height: "82px",
+      borderRadius: "50%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+      background: "linear-gradient(135deg, #6655f3, #8b5cf6)",
+      color: "#fff",
+      fontSize: "29px",
+      fontWeight: 700,
+      boxShadow: "0 8px 22px rgba(99, 102, 241, 0.24)",
+    },
+
+    heroInfo: {
+      minWidth: 0,
+    },
+
+    heroName: {
+      margin: "0 0 6px",
+      color: "#18233f",
+      fontSize: "24px",
+      fontWeight: 700,
+    },
+
+    heroEmail: {
+      margin: 0,
+      color: "#64748b",
+      fontSize: "14px",
+    },
+
+    roleBadge: {
+      display: "inline-block",
+      marginTop: "10px",
+      background: "#f0edff",
+      color: "#5b46f1",
+      borderRadius: "999px",
+      padding: "6px 10px",
+      fontSize: "12px",
+      fontWeight: 600,
+    },
+
+    grid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+      gap: "20px",
+    },
+
+    card: {
+      background: "#fff",
+      border: "1px solid #e6eaf2",
+      borderRadius: "18px",
+      padding: "24px",
+      boxShadow: "0 5px 20px rgba(15, 23, 42, 0.035)",
+      marginBottom: "20px",
+    },
+
+    sectionTitle: {
+      margin: 0,
+      color: "#18233f",
+      fontSize: "19px",
+      fontWeight: 700,
+    },
+
+    sectionDescription: {
+      margin: "6px 0 22px",
+      color: "#64748b",
+      fontSize: "13px",
+      lineHeight: 1.55,
+    },
+
+    field: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+    },
+
+    fieldFull: {
+      gridColumn: "1 / -1",
+    },
+
+    label: {
+      display: "flex",
+      alignItems: "center",
+      gap: "7px",
+      color: "#475569",
+      fontSize: "13px",
+      fontWeight: 600,
+    },
+
+    value: {
+      minHeight: "20px",
+      color: "#18233f",
+      fontSize: "14px",
+      lineHeight: 1.6,
+      wordBreak: "break-word",
+    },
+
+    input: {
+      width: "100%",
+      boxSizing: "border-box",
+      border: "1px solid #d8deea",
+      borderRadius: "10px",
+      padding: "11px 12px",
+      outline: "none",
+      fontSize: "14px",
+      color: "#18233f",
+      background: "#fff",
+    },
+
+    textarea: {
+      width: "100%",
+      boxSizing: "border-box",
+      border: "1px solid #d8deea",
+      borderRadius: "10px",
+      padding: "11px 12px",
+      outline: "none",
+      fontSize: "14px",
+      lineHeight: 1.55,
+      color: "#18233f",
+      background: "#fff",
+      resize: "vertical",
+      fontFamily: "inherit",
+    },
+
+    bio: {
+      gridColumn: "1 / -1",
+      marginTop: "20px",
+    },
+
+    skillEditor: {
+      display: "flex",
+      gap: "10px",
+      marginBottom: "18px",
+    },
+
+    addSkillButton: {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "6px",
+      border: "none",
+      background: "#eef2ff",
+      color: "#4f46e5",
+      padding: "0 15px",
+      borderRadius: "10px",
+      fontWeight: 600,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    },
+
+    skills: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "9px",
+    },
+
+    skill: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "7px",
+      background: "#f3f1ff",
+      color: "#5546b8",
+      borderRadius: "999px",
+      padding: "7px 11px",
+      fontSize: "13px",
+      fontWeight: 600,
+    },
+
+    removeSkill: {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      border: "none",
+      background: "transparent",
+      color: "#6b5ed0",
+      padding: 0,
+      cursor: "pointer",
+    },
+
+    empty: {
+      color: "#94a3b8",
+      fontSize: "14px",
+      margin: 0,
+    },
   };
 
   return (
-    <div className="forma-app">
+    <div style={styles.page}>
+      <div style={styles.container}>
+        {/* HEADER */}
+        <div style={styles.header}>
+          <div>
+            <span style={styles.eyebrow}>Account</span>
 
-      {/* ================= SIDEBAR ================= */}
+            <h1 style={styles.title}>My Profile</h1>
 
-      <aside className="sidebar">
-
-        <div className="brand">
-          <div className="brand-logo">F</div>
-          <span>Forma AI</span>
-        </div>
-
-        <nav className="sidebar-nav">
-
-          <NavItem
-            icon={<Home size={19} />}
-            text="Dashboard"
-          />
-
-          <NavItem
-            icon={<FileText size={19} />}
-            text="My Forms"
-          />
-
-          <NavItem
-            icon={<LayoutTemplate size={19} />}
-            text="Templates"
-          />
-
-          <NavItem
-            icon={<Send size={19} />}
-            text="Submissions"
-          />
-
-          <NavItem
-            icon={<BarChart3 size={19} />}
-            text="Analytics"
-          />
-
-          <NavItem
-            icon={<User size={19} />}
-            text="Profile"
-            active
-          />
-
-        </nav>
-
-        <div className="sidebar-bottom">
-
-          <NavItem
-            icon={<Settings size={19} />}
-            text="Settings"
-          />
-
-          <NavItem
-            icon={<HelpCircle size={19} />}
-            text="Help & Support"
-          />
-
-        </div>
-
-      </aside>
-
-      {/* ================= MAIN ================= */}
-
-      <main className="main-content">
-
-        {/* TOP BAR */}
-
-        <header className="topbar">
-
-          <div className="search-box">
-
-            <Search size={18} />
-
-            <input
-              type="text"
-              placeholder="Search forms, templates..."
-            />
-
+            <p style={styles.description}>
+              Manage your personal information and professional
+              profile details.
+            </p>
           </div>
 
-          <div className="topbar-right">
-
-            <button className="notification-btn">
-              <Bell size={20} />
-            </button>
-
-            <div className="user-menu">
-
-              <div className="small-avatar">
-                K
-              </div>
-
-              <span>Kaif</span>
-
-              <ChevronDown size={16} />
-
-            </div>
-
-          </div>
-
-        </header>
-
-        {/* SUCCESS MESSAGE */}
-
-        {savedMessage && (
-          <div className="success-message">
-            {savedMessage}
-          </div>
-        )}
-
-        {/* ================= PROFILE HEADER ================= */}
-
-        <section className="profile-header">
-
-          <div className="cover-image">
-            <div className="cover-overlay"></div>
-
-            <button className="change-cover">
-              <Camera size={16} />
-              Change Cover
-            </button>
-          </div>
-
-          <div className="profile-main">
-
-            <div className="profile-avatar-wrapper">
-
-              <div className="profile-avatar">
-                K
-              </div>
-
-              <button className="avatar-camera">
-                <Camera size={14} />
-              </button>
-
-            </div>
-
-            <div className="profile-info">
-
-              <div className="name-row">
-
-                <h1>{profile.name}</h1>
-
-                <span className="role-badge">
-                  {profile.role}
-                </span>
-
-              </div>
-
-              <p className="branch-text">
-                {profile.branch}
-              </p>
-
-              <div className="profile-meta">
-
-                <span>
-                  <Mail size={15} />
-                  {profile.email}
-                </span>
-
-                {profile.phone && (
-                  <span>
-                    <Phone size={15} />
-                    {profile.phone}
-                  </span>
-                )}
-
-                {profile.location && (
-                  <span>
-                    <MapPin size={15} />
-                    {profile.location}
-                  </span>
-                )}
-
-              </div>
-
-            </div>
-
-            <button
-              className="edit-profile-btn"
-              onClick={() => {
-                setEditForm(profile);
-                setShowEditModal(true);
-              }}
-            >
-              <Pencil size={16} />
-              Edit Profile
-            </button>
-
-          </div>
-
-          {/* TABS */}
-
-          <div className="profile-tabs">
-
-            {tabs.map((tab) => {
-
-              const Icon = tab.icon;
-
-              return (
-                <button
-                  key={tab.name}
-                  className={
-                    activeTab === tab.name
-                      ? "profile-tab active"
-                      : "profile-tab"
-                  }
-                  onClick={() => setActiveTab(tab.name)}
-                >
-                  <Icon size={16} />
-                  {tab.name}
-                </button>
-              );
-
-            })}
-
-          </div>
-
-        </section>
-
-        {/* ================= OVERVIEW ================= */}
-
-        {activeTab === "Overview" && (
-
-          <section className="overview-grid">
-
-            {/* ABOUT */}
-
-            <div className="card about-card">
-
-              <div className="card-title">
-
-                <h2>About Me</h2>
-
-                <button
-                  className="icon-button"
-                  onClick={() => {
-                    setEditForm(profile);
-                    setShowEditModal(true);
-                  }}
-                >
-                  <Pencil size={15} />
-                </button>
-
-              </div>
-
-              <p className="about-text">
-                {profile.bio}
-              </p>
-
-            </div>
-
-            {/* SKILLS */}
-
-            <div className="card">
-
-              <div className="card-title">
-
-                <h2>Skills</h2>
-
-              </div>
-
-              <div className="skill-list">
-
-                <span>Python</span>
-                <span>Java</span>
-                <span>SQL</span>
-                <span>React</span>
-                <span>Node.js</span>
-                <span>MongoDB</span>
-                <span>Machine Learning</span>
-                <span>AI/ML</span>
-                <span>HTML</span>
-                <span>CSS</span>
-                <span>JavaScript</span>
-
-              </div>
-
-            </div>
-
-            {/* PERSONAL INFORMATION */}
-
-            <div className="card">
-
-              <div className="card-title">
-
-                <h2>Personal Information</h2>
-
-                <button
-                  className="text-link"
-                  onClick={() => setActiveTab("Personal Info")}
-                >
-                  View
-                </button>
-
-              </div>
-
-              <InfoRow
-                icon={<User size={17} />}
-                label="Full Name"
-                value={profile.name}
-              />
-
-              <InfoRow
-                icon={<Mail size={17} />}
-                label="Email"
-                value={profile.email}
-              />
-
-              <InfoRow
-                icon={<Phone size={17} />}
-                label="Phone"
-                value={profile.phone || "Not added"}
-              />
-
-              <InfoRow
-                icon={<MapPin size={17} />}
-                label="Location"
-                value={profile.location || "Not added"}
-              />
-
-            </div>
-
-            {/* ACCOUNT SECURITY */}
-
-            <div className="card">
-
-              <div className="card-title">
-
-                <h2>Account Security</h2>
-
-                <button
-                  className="text-link"
-                  onClick={() => setActiveTab("Security")}
-                >
-                  Manage
-                </button>
-
-              </div>
-
-              <div className="security-summary">
-
-                <div className="security-summary-icon">
-                  <Shield size={22} />
-                </div>
-
-                <div>
-                  <strong>Account Security</strong>
-                  <p>
-                    Manage your password and authentication settings.
-                  </p>
-                </div>
-
-              </div>
-
-            </div>
-
-          </section>
-
-        )}
-
-        {/* ================= PERSONAL INFO ================= */}
-
-        {activeTab === "Personal Info" && (
-
-          <div className="tab-page card">
-
-            <div className="tab-page-header">
-
-              <div>
-                <h2>Personal Information</h2>
-
-                <p>
-                  Manage the information associated with your Forma AI account.
-                </p>
-              </div>
-
+          <div style={styles.actionGroup}>
+            {!editMode ? (
               <button
-                className="edit-profile-btn"
-                onClick={() => {
-                  setEditForm(profile);
-                  setShowEditModal(true);
-                }}
+                type="button"
+                style={styles.editButton}
+                onClick={() => setEditMode(true)}
               >
                 <Pencil size={16} />
-                Edit
+                Edit Profile
               </button>
-
-            </div>
-
-            <div className="personal-grid">
-
-              <InfoBox
-                label="Full Name"
-                value={profile.name}
-              />
-
-              <InfoBox
-                label="Role"
-                value={profile.role}
-              />
-
-              <InfoBox
-                label="Branch"
-                value={profile.branch}
-              />
-
-              <InfoBox
-                label="Email Address"
-                value={profile.email}
-              />
-
-              <InfoBox
-                label="Phone Number"
-                value={profile.phone || "Not added"}
-              />
-
-              <InfoBox
-                label="Location"
-                value={profile.location || "Not added"}
-              />
-
-            </div>
-
-            <div className="bio-section">
-
-              <h3>Biography</h3>
-
-              <p>
-                {profile.bio}
-              </p>
-
-            </div>
-
-          </div>
-
-        )}
-
-        {/* ================= SECURITY ================= */}
-
-        {activeTab === "Security" && (
-
-          <div className="tab-page card">
-
-            <div className="tab-page-header">
-
-              <div>
-
-                <h2>Security</h2>
-
-                <p>
-                  Manage your account security settings.
-                </p>
-
-              </div>
-
-              <Shield className="security-icon" />
-
-            </div>
-
-            <SecurityRow
-              icon={<Lock />}
-              title="Password"
-              description="Change your account password."
-              action="Change"
-            />
-
-            <SecurityRow
-              icon={<Shield />}
-              title="Two-Factor Authentication"
-              description="Add an additional authentication step."
-              action="Configure"
-            />
-
-            <SecurityRow
-              icon={<LogOut />}
-              title="Active Sessions"
-              description="Review devices currently signed into your account."
-              action="Manage"
-            />
-
-          </div>
-
-        )}
-
-        {/* ================= PREFERENCES ================= */}
-
-        {activeTab === "Preferences" && (
-
-          <div className="tab-page card">
-
-            <div className="tab-page-header">
-
-              <div>
-
-                <h2>Preferences</h2>
-
-                <p>
-                  Customize how Forma AI communicates with you.
-                </p>
-
-              </div>
-
-            </div>
-
-            <PreferenceRow
-              title="Email Notifications"
-              description="Receive important updates about your forms and submissions."
-            />
-
-            <PreferenceRow
-              title="Product Updates"
-              description="Receive updates about new Forma AI features."
-            />
-
-            <PreferenceRow
-              title="AI Suggestions"
-              description="Allow Forma AI to provide suggestions while creating forms."
-            />
-
-          </div>
-
-        )}
-
-        {/* ================= ACTIVITY ================= */}
-
-        {activeTab === "Activity" && (
-
-          <div className="tab-page card">
-
-            <div className="tab-page-header">
-
-              <div>
-
-                <h2>Activity</h2>
-
-                <p>
-                  Activity generated by your account will appear here.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div className="empty-activity">
-
-              <Activity size={38} />
-
-              <h3>No activity yet</h3>
-
-              <p>
-                Your form creation, editing, and submission activity
-                will appear here once you start using Forma AI.
-              </p>
-
-            </div>
-
-          </div>
-
-        )}
-
-      </main>
-
-      {/* ================= EDIT PROFILE MODAL ================= */}
-
-      {showEditModal && (
-
-        <div className="modal-overlay">
-
-          <div className="edit-modal">
-
-            <div className="modal-header">
-
-              <div>
-
-                <h2>Edit Profile</h2>
-
-                <p>
-                  Update your profile information.
-                </p>
-
-              </div>
-
-              <button
-                className="close-modal"
-                onClick={() => setShowEditModal(false)}
-              >
-                <X size={20} />
-              </button>
-
-            </div>
-
-            <div className="modal-body">
-
-              <div className="modal-avatar">
-
-                <div className="profile-avatar">
-                  K
-                </div>
-
-                <button className="change-photo">
-                  <Camera size={14} />
-                  Change Photo
+            ) : (
+              <>
+                <button
+                  type="button"
+                  style={styles.cancelButton}
+                  onClick={handleCancel}
+                >
+                  <X size={16} />
+                  Cancel
                 </button>
 
-              </div>
+                <button
+                  type="button"
+                  style={styles.saveButton}
+                  onClick={handleSave}
+                >
+                  <Save size={16} />
+                  Save Changes
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
-              <div className="form-fields">
+        {/* MESSAGE */}
+        {message && (
+          <div style={styles.message}>
+            {message}
+          </div>
+        )}
 
-                <label>
-                  Full Name
-
-                  <input
-                    name="name"
-                    value={editForm.name}
-                    onChange={handleEditChange}
-                  />
-                </label>
-
-                <label>
-                  Email
-
-                  <input
-                    name="email"
-                    type="email"
-                    value={editForm.email}
-                    onChange={handleEditChange}
-                  />
-                </label>
-
-                <label>
-                  Phone
-
-                  <input
-                    name="phone"
-                    value={editForm.phone}
-                    onChange={handleEditChange}
-                    placeholder="Add phone number"
-                  />
-                </label>
-
-                <label>
-                  Location
-
-                  <input
-                    name="location"
-                    value={editForm.location}
-                    onChange={handleEditChange}
-                    placeholder="Add location"
-                  />
-                </label>
-
-                <label>
-                  Bio
-
-                  <textarea
-                    name="bio"
-                    value={editForm.bio}
-                    onChange={handleEditChange}
-                    maxLength={500}
-                  />
-                </label>
-
-              </div>
-
-            </div>
-
-            <div className="modal-footer">
-
-              <button
-                className="cancel-btn"
-                onClick={() => setShowEditModal(false)}
-              >
-                Cancel
-              </button>
-
-              <button
-                className="save-btn"
-                onClick={saveProfile}
-              >
-                <Save size={16} />
-                Save Changes
-              </button>
-
-            </div>
-
+        {/* HERO */}
+        <section style={styles.hero}>
+          <div style={styles.avatar}>
+            {initials}
           </div>
 
+          <div style={styles.heroInfo}>
+            <h2 style={styles.heroName}>
+              {profile.name || "Your Name"}
+            </h2>
+
+            <p style={styles.heroEmail}>
+              {profile.email || "No email added"}
+            </p>
+
+            {profile.role && (
+              <span style={styles.roleBadge}>
+                {profile.role}
+              </span>
+            )}
+          </div>
+        </section>
+
+        {/* PERSONAL + PROFESSIONAL */}
+        <div style={styles.grid}>
+          {/* PERSONAL */}
+          <section style={styles.card}>
+            <h2 style={styles.sectionTitle}>
+              Personal Information
+            </h2>
+
+            <p style={styles.sectionDescription}>
+              Basic information associated with your Forma AI
+              account.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "20px",
+              }}
+            >
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  <UserRound size={15} />
+                  Full Name
+                </label>
+
+                {editMode ? (
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={profile.name}
+                    onChange={(event) =>
+                      updateField(
+                        "name",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Enter your name"
+                  />
+                ) : (
+                  <div style={styles.value}>
+                    {profile.name || "Not provided"}
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  <Mail size={15} />
+                  Email Address
+                </label>
+
+                {editMode ? (
+                  <input
+                    style={styles.input}
+                    type="email"
+                    value={profile.email}
+                    onChange={(event) =>
+                      updateField(
+                        "email",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Enter your email"
+                  />
+                ) : (
+                  <div style={styles.value}>
+                    {profile.email || "Not provided"}
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  <Phone size={15} />
+                  Phone Number
+                </label>
+
+                {editMode ? (
+                  <input
+                    style={styles.input}
+                    type="tel"
+                    value={profile.phone}
+                    onChange={(event) =>
+                      updateField(
+                        "phone",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Enter phone number"
+                  />
+                ) : (
+                  <div style={styles.value}>
+                    {profile.phone || "Not provided"}
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  <MapPin size={15} />
+                  Location
+                </label>
+
+                {editMode ? (
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={profile.location}
+                    onChange={(event) =>
+                      updateField(
+                        "location",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Enter location"
+                  />
+                ) : (
+                  <div style={styles.value}>
+                    {profile.location || "Not provided"}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* PROFESSIONAL */}
+          <section style={styles.card}>
+            <h2 style={styles.sectionTitle}>
+              Professional Information
+            </h2>
+
+            <p style={styles.sectionDescription}>
+              Add details about your role, education and
+              background.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr",
+                gap: "20px",
+              }}
+            >
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  <BriefcaseBusiness size={15} />
+                  Role
+                </label>
+
+                {editMode ? (
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={profile.role}
+                    onChange={(event) =>
+                      updateField(
+                        "role",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Enter your role"
+                  />
+                ) : (
+                  <div style={styles.value}>
+                    {profile.role || "Not provided"}
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  <GraduationCap size={15} />
+                  Education
+                </label>
+
+                {editMode ? (
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={profile.education}
+                    onChange={(event) =>
+                      updateField(
+                        "education",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Enter your education"
+                  />
+                ) : (
+                  <div style={styles.value}>
+                    {profile.education ||
+                      "Not provided"}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={styles.bio}>
+              <label style={styles.label}>
+                <Code2 size={15} />
+                About
+              </label>
+
+              <div style={{ marginTop: "8px" }}>
+                {editMode ? (
+                  <textarea
+                    style={styles.textarea}
+                    rows={6}
+                    value={profile.bio}
+                    onChange={(event) =>
+                      updateField(
+                        "bio",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Tell us about yourself..."
+                  />
+                ) : (
+                  <div style={styles.value}>
+                    {profile.bio ||
+                      "No bio added yet."}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
         </div>
 
-      )}
+        {/* SKILLS */}
+        <section style={styles.card}>
+          <h2 style={styles.sectionTitle}>Skills</h2>
 
-    </div>
-  );
-};
+          <p style={styles.sectionDescription}>
+            Add the technologies and skills you want to
+            display on your profile.
+          </p>
 
-/* ================= COMPONENTS ================= */
+          {editMode && (
+            <div style={styles.skillEditor}>
+              <input
+                style={{
+                  ...styles.input,
+                  flex: 1,
+                }}
+                type="text"
+                value={skillInput}
+                onChange={(event) =>
+                  setSkillInput(event.target.value)
+                }
+                onKeyDown={handleSkillKeyDown}
+                placeholder="Type a skill and press Enter"
+              />
 
-const NavItem = ({ icon, text, active }) => {
-  return (
-    <button
-      className={`nav-item ${active ? "active" : ""}`}
-    >
-      {icon}
-      <span>{text}</span>
-    </button>
-  );
-};
+              <button
+                type="button"
+                style={styles.addSkillButton}
+                onClick={addSkill}
+              >
+                <Plus size={15} />
+                Add Skill
+              </button>
+            </div>
+          )}
 
-const InfoRow = ({ icon, label, value }) => {
-  return (
-    <div className="info-row">
+          <div style={styles.skills}>
+            {profile.skills.length > 0 ? (
+              profile.skills.map((skill) => (
+                <div
+                  key={skill}
+                  style={styles.skill}
+                >
+                  {skill}
 
-      <div className="info-icon">
-        {icon}
+                  {editMode && (
+                    <button
+                      type="button"
+                      style={styles.removeSkill}
+                      onClick={() =>
+                        removeSkill(skill)
+                      }
+                      aria-label={`Remove ${skill}`}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p style={styles.empty}>
+                No skills added yet.
+              </p>
+            )}
+          </div>
+        </section>
+
+        {/* BOTTOM SAVE ACTION */}
+        {editMode && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "10px",
+              paddingBottom: "20px",
+            }}
+          >
+            <button
+              type="button"
+              style={styles.cancelButton}
+              onClick={handleCancel}
+            >
+              <X size={16} />
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              style={styles.saveButton}
+              onClick={handleSave}
+            >
+              <Save size={16} />
+              Save Changes
+            </button>
+          </div>
+        )}
       </div>
-
-      <div>
-        <small>{label}</small>
-        <strong>{value}</strong>
-      </div>
-
     </div>
   );
-};
-
-const InfoBox = ({ label, value }) => {
-  return (
-    <div className="info-box">
-
-      <span>{label}</span>
-
-      <strong>{value}</strong>
-
-    </div>
-  );
-};
-
-const SecurityRow = ({
-  icon,
-  title,
-  description,
-  action,
-}) => {
-  return (
-    <div className="security-row">
-
-      <div className="security-left">
-
-        <div className="security-icon-box">
-          {icon}
-        </div>
-
-        <div>
-          <strong>{title}</strong>
-          <span>{description}</span>
-        </div>
-
-      </div>
-
-      <button className="outline-btn">
-        {action}
-      </button>
-
-    </div>
-  );
-};
-
-const PreferenceRow = ({
-  title,
-  description,
-}) => {
-
-  const [enabled, setEnabled] = useState(true);
-
-  return (
-    <div className="preference-row">
-
-      <div>
-
-        <strong>{title}</strong>
-
-        <span>{description}</span>
-
-      </div>
-
-      <button
-        className={`toggle ${enabled ? "on" : ""}`}
-        onClick={() => setEnabled(!enabled)}
-        aria-label={`Toggle ${title}`}
-      >
-        <span></span>
-      </button>
-
-    </div>
-  );
-};
+}
 
 export default Profile;
