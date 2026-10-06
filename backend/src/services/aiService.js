@@ -1,21 +1,9 @@
-\import { ChatOllama } from "@langchain/ollama";
+import { ChatOllama } from "@langchain/ollama";
 import { z } from "zod";
 
-/*
- * Forma AI Local LLM Service
- *
- * Uses:
- *   LangChain -> Ollama -> Qwen
- *
- * No paid API key is required.
- *
- * If Ollama/Qwen is unavailable, the existing local rule-based
- * generators are used as a fallback so the application keeps working.
- */
-
-// ----------------------------------------------------
-// ZOD SCHEMA FOR AI-GENERATED FORMS
-// ----------------------------------------------------
+// ============================================================
+// ZOD SCHEMAS
+// ============================================================
 
 const optionSchema = z.object({
   label: z.string(),
@@ -68,274 +56,307 @@ const formSchema = z.object({
   fields: z.array(fieldSchema).min(1),
 });
 
-// ----------------------------------------------------
-// LOCAL OLLAMA MODEL
-// ----------------------------------------------------
+// ============================================================
+// OLLAMA / QWEN
+// ============================================================
 
 const llm = new ChatOllama({
   model: process.env.OLLAMA_MODEL || "qwen3.5:4b",
-  baseUrl: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
+  baseUrl:
+    process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
   temperature: 0,
+  numCtx: 2048,
+  numPredict: 600,
+  keepAlive: "10m",
+  think: false,
 });
 
-// ----------------------------------------------------
-// PROMPT FOR FORMA AI
-// ----------------------------------------------------
+// ============================================================
+// FORM GENERATION PROMPT
+// ============================================================
 
-const buildFormPrompt = (userPrompt) => `
-You are Forma AI, an intelligent dynamic form schema generator.
+function buildFormPrompt(userPrompt) {
+  return `
+You are Forma AI, an intelligent dynamic form generator.
 
-Convert the user's natural-language request into a valid form schema.
+Convert the user's request into a practical JSON form schema.
 
-User request:
-"${userPrompt}"
+USER REQUEST:
+${userPrompt}
+
+RETURN ONLY VALID JSON.
+
+Required top-level structure:
+
+{
+  "title": "Form title",
+  "description": "Form description",
+  "category": "Category",
+  "fields": [
+    {
+      "id": "fieldId",
+      "label": "Field label",
+      "type": "text",
+      "required": true,
+      "placeholder": "Optional placeholder"
+    }
+  ]
+}
+
+Allowed field types:
+text
+email
+number
+textarea
+select
+radio
+checkbox
+date
 
 Rules:
 
-1. Return ONLY the structured schema requested by the system.
-2. Generate useful fields based on the user's request.
-3. Use the correct field type:
-   - email -> "email"
-   - years, age, quantity, count, amount -> "number"
-   - date -> "date"
-   - long explanation -> "textarea"
-   - yes/no questions -> "radio"
-   - multiple choices -> "select"
-4. Use short camelCase IDs.
-5. Make important fields required.
-6. For select/radio fields, provide useful options.
-7. Create conditional logic with showIf when one answer should control another field.
-8. Do not create HTML.
-9. Do not create CSS.
-10. Do not create JavaScript.
-11. Do not explain your answer.
-12. Return only the schema.
+1. Create fields specifically requested by the user.
+2. Do not replace requested fields with generic "Additional Details".
+3. Use camelCase IDs.
+4. Email fields must use type "email".
+5. Years, age, amount, quantity and count must use type "number".
+6. Dates must use type "date".
+7. Long explanations must use type "textarea".
+8. Yes/no questions should use type "radio".
+9. Multiple-choice questions should use type "select".
+10. Select/radio options MUST use this exact format:
 
-The generated schema will be used directly by a React dynamic form renderer.
+"options": [
+  {
+    "label": "Option Name",
+    "value": "option_value"
+  }
+]
+
+11. Make important fields required.
+12. Add showIf only when useful.
+13. Do not output markdown.
+14. Do not output code fences.
+15. Do not output comments.
+16. Do not output explanations.
+17. Do not add trailing commas.
+
+Return only the JSON object.
 `;
+}
 
-// ----------------------------------------------------
-// FALLBACK FORMA AI GENERATORS
-// ----------------------------------------------------
+// ============================================================
+// EXTRACTION PROMPT
+// ============================================================
 
-function createVehicleForm() {
+function buildExtractionPrompt(text, fields) {
+  return `
+You are Forma AI.
+
+Extract information from the user's text and map it to the supplied form fields.
+
+USER TEXT:
+${text}
+
+FORM FIELDS:
+${JSON.stringify(fields)}
+
+Return ONLY valid JSON.
+
+Example:
+{
+  "fullName": "Jane Doe",
+  "email": "jane@example.com",
+  "experience": 2
+}
+
+Rules:
+1. Use only field IDs provided.
+2. Do not invent information.
+3. Numbers must be JSON numbers.
+4. Return only fields for which a value can be identified.
+5. No markdown.
+6. No explanations.
+7. No code fences.
+`;
+}
+
+// ============================================================
+// CLEAN JSON
+// ============================================================
+
+function cleanJsonResponse(rawContent) {
+  let text = String(rawContent || "").trim();
+
+  // Remove thinking blocks
+  text = text.replace(
+    /<think>[\s\S]*?<\/think>/gi,
+    ""
+  );
+
+  text = text.trim();
+
+  // Remove markdown fences
+  const fenced = text.match(
+    /```(?:json)?\s*([\s\S]*?)\s*```/i
+  );
+
+  if (fenced) {
+    text = fenced[1].trim();
+  }
+
+  // Find JSON object
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace === -1) {
+    throw new Error("No JSON object found in Qwen response.");
+  }
+
+  text = text.slice(firstBrace, lastBrace + 1);
+
+  // Remove trailing commas
+  text = text.replace(
+    /,\s*([}\]])/g,
+    "$1"
+  );
+
+  return JSON.parse(text);
+}
+
+// ============================================================
+// NORMALIZE OPTIONS
+// ============================================================
+
+function normalizeOptions(options) {
+  if (!Array.isArray(options)) {
+    return undefined;
+  }
+
+  return options.map((option) => {
+    // Qwen sometimes returns:
+    // ["Python", "Java", "React"]
+    if (typeof option === "string") {
+      return {
+        label: option,
+        value: option
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_+|_+$/g, ""),
+      };
+    }
+
+    // Already correct:
+    // { label: "Python", value: "python" }
+    return option;
+  });
+}
+
+// ============================================================
+// NORMALIZE FORM
+// ============================================================
+
+function normalizeGeneratedForm(schema) {
   return {
-    id: `vehicle-insurance-${Date.now().toString(36)}`,
-    title: "Vehicle Insurance Claim Form",
-    description:
-      "Submit details regarding a vehicle accident or insurance claim.",
-    category: "Insurance",
-    fields: [
-      {
-        id: "fullName",
-        label: "Full Name",
-        type: "text",
-        required: true,
-        placeholder: "Enter your full name",
-      },
-      {
-        id: "email",
-        label: "Email Address",
-        type: "email",
-        required: true,
-        placeholder: "name@example.com",
-      },
-      {
-        id: "incidentDate",
-        label: "Date of Incident",
-        type: "date",
-        required: true,
-      },
-      {
-        id: "accidentOccurred",
-        label: "Did an accident occur?",
-        type: "radio",
-        required: true,
-        options: [
-          { label: "Yes", value: "yes" },
-          { label: "No", value: "no" },
-        ],
-      },
-      {
-        id: "vehicleDamaged",
-        label: "Was the vehicle damaged?",
-        type: "radio",
-        required: true,
-        options: [
-          { label: "Yes", value: "yes" },
-          { label: "No", value: "no" },
-        ],
-        showIf: {
-          field: "accidentOccurred",
-          operator: "equals",
-          value: "yes",
-        },
-      },
-      {
-        id: "damageType",
-        label: "Type of Damage",
-        type: "select",
-        required: true,
-        options: [
-          { label: "Minor", value: "minor" },
-          { label: "Moderate", value: "moderate" },
-          { label: "Major", value: "major" },
-        ],
-        showIf: {
-          field: "vehicleDamaged",
-          operator: "equals",
-          value: "yes",
-        },
-      },
-      {
-        id: "incidentDescription",
-        label: "Describe the Incident",
-        type: "textarea",
-        required: true,
-        placeholder: "Explain what happened...",
-      },
-    ],
+    id: `ai-form-${Date.now().toString(36)}`,
+
+    title: schema.title,
+
+    description: schema.description,
+
+    category: schema.category,
+
+    fields: schema.fields.map((field, index) => ({
+      id: field.id || `field_${index + 1}`,
+
+      label: field.label,
+
+      type: field.type,
+
+      required: Boolean(field.required),
+
+      ...(field.placeholder
+        ? { placeholder: field.placeholder }
+        : {}),
+
+      ...(field.helpText
+        ? { helpText: field.helpText }
+        : {}),
+
+      ...(field.options
+        ? { options: normalizeOptions(field.options) }
+        : {}),
+
+      ...(field.showIf
+        ? { showIf: field.showIf }
+        : {}),
+    })),
   };
 }
 
-function createMedicalForm() {
-  return {
-    id: `medical-claim-${Date.now().toString(36)}`,
-    title: "Medical Claim Form",
-    description:
-      "Collect patient and medical treatment information.",
-    category: "Healthcare",
-    fields: [
-      {
-        id: "patientName",
-        label: "Patient Full Name",
-        type: "text",
-        required: true,
-        placeholder: "Enter patient name",
-      },
-      {
-        id: "email",
-        label: "Email Address",
-        type: "email",
-        required: true,
-        placeholder: "patient@example.com",
-      },
-      {
-        id: "treatmentDate",
-        label: "Treatment Date",
-        type: "date",
-        required: true,
-      },
-      {
-        id: "treatmentType",
-        label: "Treatment Type",
-        type: "select",
-        required: true,
-        options: [
-          { label: "Consultation", value: "consultation" },
-          { label: "Emergency", value: "emergency" },
-          { label: "Hospitalization", value: "hospitalization" },
-        ],
-      },
-      {
-        id: "hospitalDays",
-        label: "Number of Hospital Days",
-        type: "number",
-        required: true,
-        showIf: {
-          field: "treatmentType",
-          operator: "equals",
-          value: "hospitalization",
+// ============================================================
+// FALLBACK
+// ============================================================
+
+function createFallbackForm(prompt) {
+  const text = prompt.toLowerCase();
+
+  if (
+    text.includes("vehicle") ||
+    text.includes("car") ||
+    text.includes("insurance") ||
+    text.includes("auto")
+  ) {
+    return {
+      id: `vehicle-insurance-${Date.now().toString(36)}`,
+      title: "Vehicle Insurance Claim Form",
+      description:
+        "Submit details regarding a vehicle insurance claim.",
+      category: "Insurance",
+      fields: [
+        {
+          id: "fullName",
+          label: "Full Name",
+          type: "text",
+          required: true,
         },
-      },
-      {
-        id: "description",
-        label: "Medical Description",
-        type: "textarea",
-        required: true,
-        placeholder: "Describe the treatment...",
-      },
-      {
-        id: "consent",
-        label: "I confirm that the information is accurate.",
-        type: "checkbox",
-        required: true,
-      },
-    ],
-  };
-}
-
-function createEventForm() {
-  return {
-    id: `event-registration-${Date.now().toString(36)}`,
-    title: "Event Registration Form",
-    description: "Register attendees for an event.",
-    category: "Events",
-    fields: [
-      {
-        id: "fullName",
-        label: "Full Name",
-        type: "text",
-        required: true,
-      },
-      {
-        id: "email",
-        label: "Email Address",
-        type: "email",
-        required: true,
-      },
-      {
-        id: "ticketType",
-        label: "Ticket Type",
-        type: "select",
-        required: true,
-        options: [
-          { label: "General", value: "general" },
-          { label: "VIP", value: "vip" },
-        ],
-      },
-      {
-        id: "vipDinner",
-        label: "Will you attend the VIP dinner?",
-        type: "radio",
-        required: true,
-        options: [
-          { label: "Yes", value: "yes" },
-          { label: "No", value: "no" },
-        ],
-        showIf: {
-          field: "ticketType",
-          operator: "equals",
-          value: "vip",
+        {
+          id: "email",
+          label: "Email Address",
+          type: "email",
+          required: true,
         },
-      },
-      {
-        id: "specialRequests",
-        label: "Special Requests",
-        type: "textarea",
-        required: false,
-      },
-    ],
-  };
-}
-
-function createGenericForm(prompt) {
-  const words = prompt
-    .trim()
-    .split(/\s+/)
-    .slice(0, 5)
-    .join(" ");
-
-  const title =
-    words.charAt(0).toUpperCase() +
-    words.slice(1) +
-    (words.toLowerCase().includes("form") ? "" : " Form");
+        {
+          id: "incidentDate",
+          label: "Date of Incident",
+          type: "date",
+          required: true,
+        },
+        {
+          id: "accidentOccurred",
+          label: "Did an accident occur?",
+          type: "radio",
+          required: true,
+          options: [
+            { label: "Yes", value: "yes" },
+            { label: "No", value: "no" },
+          ],
+        },
+        {
+          id: "incidentDescription",
+          label: "Describe the Incident",
+          type: "textarea",
+          required: true,
+        },
+      ],
+    };
+  }
 
   return {
     id: `custom-form-${Date.now().toString(36)}`,
-    title,
+    title: "Custom Form",
     description:
-      "A dynamically generated form based on the user's request.",
+      "A custom form generated from the user's request.",
     category: "Custom",
     fields: [
       {
@@ -357,114 +378,166 @@ function createGenericForm(prompt) {
         label: "Additional Details",
         type: "textarea",
         required: true,
-        placeholder: "Enter the required details...",
+        placeholder: "Enter additional details...",
       },
     ],
   };
 }
 
-// ----------------------------------------------------
-// FALLBACK ROUTER
-// ----------------------------------------------------
-
-function generateFallbackForm(prompt) {
-  const text = prompt.toLowerCase();
-
-  if (
-    text.includes("vehicle") ||
-    text.includes("insurance") ||
-    text.includes("car") ||
-    text.includes("auto")
-  ) {
-    return createVehicleForm();
-  }
-
-  if (
-    text.includes("medical") ||
-    text.includes("health") ||
-    text.includes("patient") ||
-    text.includes("hospital")
-  ) {
-    return createMedicalForm();
-  }
-
-  if (
-    text.includes("event") ||
-    text.includes("registration") ||
-    text.includes("conference") ||
-    text.includes("ticket")
-  ) {
-    return createEventForm();
-  }
-
-  return createGenericForm(prompt);
-}
-
-// ----------------------------------------------------
-// NORMALIZE AI OUTPUT FOR FORMA AI
-// ----------------------------------------------------
-
-function normalizeGeneratedForm(schema) {
-  return {
-    id: `ai-form-${Date.now().toString(36)}`,
-    title: schema.title,
-    description: schema.description,
-    category: schema.category,
-    fields: schema.fields.map((field, index) => ({
-      id: field.id || `field_${index + 1}`,
-      label: field.label,
-      type: field.type,
-      required: Boolean(field.required),
-      ...(field.placeholder
-        ? { placeholder: field.placeholder }
-        : {}),
-      ...(field.helpText
-        ? { helpText: field.helpText }
-        : {}),
-      ...(field.options?.length
-        ? { options: field.options }
-        : {}),
-      ...(field.showIf
-        ? { showIf: field.showIf }
-        : {}),
-    })),
-  };
-}
-
-// ----------------------------------------------------
-// MAIN AI GENERATOR
-// ----------------------------------------------------
+// ============================================================
+// GENERATE FORM
+// ============================================================
 
 export async function generateFormFromPrompt(prompt) {
   if (!prompt || !prompt.trim()) {
     throw new Error("Prompt is required.");
   }
 
+  console.log(
+    "Forma AI: sending generation request to Qwen..."
+  );
+
   try {
-    console.log("Forma AI: sending prompt to local Qwen via Ollama...");
-
-    const structuredModel = llm.withStructuredOutput(formSchema, {
-      name: "FormaAIFormSchema",
-      method: "json_schema",
-    });
-
-    const result = await structuredModel.invoke(
-      buildFormPrompt(prompt)
+    const response = await llm.invoke(
+      buildFormPrompt(prompt),
+      {
+        timeout: 120000,
+      }
     );
 
-    const normalized = normalizeGeneratedForm(result);
+    const rawContent =
+      typeof response.content === "string"
+        ? response.content
+        : JSON.stringify(response.content);
 
     console.log(
-      `Forma AI: local LLM generated "${normalized.title}" with ${normalized.fields.length} fields.`
+      "Forma AI raw response:",
+      rawContent
+    );
+
+    const parsed = cleanJsonResponse(rawContent);
+
+    // Normalize string options before Zod validation
+    if (Array.isArray(parsed.fields)) {
+      parsed.fields = parsed.fields.map((field) => ({
+        ...field,
+
+        ...(Array.isArray(field.options)
+          ? {
+              options: normalizeOptions(
+                field.options
+              ),
+            }
+          : {}),
+      }));
+    }
+
+    const validated = formSchema.parse(parsed);
+
+    const normalized =
+      normalizeGeneratedForm(validated);
+
+    console.log(
+      `Forma AI: Qwen generated "${normalized.title}" with ${normalized.fields.length} fields.`
     );
 
     return normalized;
   } catch (error) {
-    console.warn(
-      "Forma AI local LLM unavailable or failed. Using fallback generator.",
+    console.error(
+      "Forma AI generation failed:",
       error.message
     );
 
-    return generateFallbackForm(prompt);
+    throw new Error(
+      `Local AI generation failed: ${error.message}`
+    );
+  }
+}
+
+// ============================================================
+// EXTRACT VALUES
+// ============================================================
+
+export async function extractFormValuesFromText({
+  text,
+  fields,
+  formId = null,
+}) {
+  if (!text || !text.trim()) {
+    throw new Error("Text is required.");
+  }
+
+  if (!Array.isArray(fields) || fields.length === 0) {
+    throw new Error("Form fields are required.");
+  }
+
+  console.log(
+    "Forma AI: sending extraction request to Qwen..."
+  );
+
+  try {
+    const safeFields = fields.map((field) => ({
+      id: field.id,
+      label: field.label,
+      type: field.type,
+    }));
+
+    const response = await llm.invoke(
+      buildExtractionPrompt(
+        text,
+        safeFields
+      ),
+      {
+        timeout: 120000,
+      }
+    );
+
+    const rawContent =
+      typeof response.content === "string"
+        ? response.content
+        : JSON.stringify(response.content);
+
+    const extracted =
+      cleanJsonResponse(rawContent);
+
+    const allowedIds = new Set(
+      safeFields.map((field) => field.id)
+    );
+
+    const extractedData = {};
+
+    for (const [key, value] of Object.entries(
+      extracted
+    )) {
+      if (allowedIds.has(key)) {
+        extractedData[key] = value;
+      }
+    }
+
+    const confidenceScores = {};
+
+    for (const key of Object.keys(
+      extractedData
+    )) {
+      confidenceScores[key] = 1;
+    }
+
+    return {
+      extractedData,
+      confidenceScores,
+      extractedAt:
+        new Date().toISOString(),
+      source: "local_qwen_llm",
+      formId,
+    };
+  } catch (error) {
+    console.error(
+      "Forma AI extraction failed:",
+      error.message
+    );
+
+    throw new Error(
+      `Local AI extraction failed: ${error.message}`
+    );
   }
 }
