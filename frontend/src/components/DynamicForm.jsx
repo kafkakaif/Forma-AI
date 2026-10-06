@@ -14,38 +14,37 @@ import React, {
 
 import { useForm } from "react-hook-form";
 
-
-
 import {
-
   AlertCircle,
-
   CheckCircle2,
-
   Sparkles,
-
   Send,
-
   RotateCcw,
-
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  Code2,
+  FileText,
+  RefreshCw,
 } from "lucide-react";
 
-
-
 import { evaluateConditionRule } from "../utils/conditionEvaluator";
-
+import {
+  requestExtraction,
+  receiveExtractionResponse,
+  SAMPLE_EXTRACTION_PROMPTS,
+  SAMPLE_RAW_RESPONSES,
+} from "../services/aiExtractionService";
 import "./DynamicForm.css";
 
-
-
 function DynamicForm({
-
   schema,
-
   onSubmitSuccess,
-
   showHeader = true,
-
+  initialExtractionResponse = null,
+  onReceiveExtractionResponse = null,
+  enableExtraction = true,
 }) {
 
   const [submittedData, setSubmittedData] =
@@ -76,9 +75,101 @@ function DynamicForm({
 
     useState(false);
 
-    const [draftLoaded, setDraftLoaded] =
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
-  useState(false);
+  // =========================================================
+  // WEEK 3 (POINT 1): RECEIVE EXTRACTION RESPONSE
+  // =========================================================
+  const [extractionPanelOpen, setExtractionPanelOpen] = useState(false);
+  const [extractionMode, setExtractionMode] = useState("text"); // 'text' | 'raw_json'
+  const [extractionInputText, setExtractionInputText] = useState("");
+  const [rawJsonInput, setRawJsonInput] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState("");
+  const [receivedExtraction, setReceivedExtraction] = useState(null);
+  const [showRawJsonPayload, setShowRawJsonPayload] = useState(false);
+  const [copiedPayload, setCopiedPayload] = useState(false);
+
+  // Receive extraction response if passed via props
+  useEffect(() => {
+    if (initialExtractionResponse) {
+      const result = receiveExtractionResponse(initialExtractionResponse, "prop");
+      if (result.success) {
+        setReceivedExtraction(result.response);
+        setExtractionPanelOpen(true);
+        if (onReceiveExtractionResponse) {
+          onReceiveExtractionResponse(result.response);
+        }
+      } else {
+        setExtractionError(result.error);
+      }
+    }
+  }, [initialExtractionResponse, onReceiveExtractionResponse]);
+
+  const handleTriggerExtraction = async () => {
+    setIsExtracting(true);
+    setExtractionError("");
+
+    try {
+      if (extractionMode === "raw_json") {
+        if (!rawJsonInput.trim()) {
+          throw new Error("Please enter or paste a JSON extraction response payload.");
+        }
+        const result = receiveExtractionResponse(rawJsonInput.trim(), "direct_json_paste");
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        setReceivedExtraction(result.response);
+        if (onReceiveExtractionResponse) {
+          onReceiveExtractionResponse(result.response);
+        }
+      } else {
+        if (!extractionInputText.trim()) {
+          throw new Error("Please enter incident notes or claim text to extract data from.");
+        }
+        const response = await requestExtraction({
+          text: extractionInputText.trim(),
+          schema,
+          formId: schema?.formId || schema?.id,
+        });
+        setReceivedExtraction(response);
+        if (onReceiveExtractionResponse) {
+          onReceiveExtractionResponse(response);
+        }
+      }
+    } catch (err) {
+      setExtractionError(err.message || "Failed to receive extraction response.");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handleLoadSampleText = (presetKey = "insuranceClaim") => {
+    const text = SAMPLE_EXTRACTION_PROMPTS[presetKey] || SAMPLE_EXTRACTION_PROMPTS.insuranceClaim;
+    setExtractionInputText(text);
+    setExtractionError("");
+  };
+
+  const handleLoadSampleRawJson = () => {
+    setRawJsonInput(JSON.stringify(SAMPLE_RAW_RESPONSES.insuranceClaim, null, 2));
+    setExtractionError("");
+  };
+
+  const handleCopyPayload = () => {
+    if (!receivedExtraction?.rawResponse) return;
+    navigator.clipboard.writeText(JSON.stringify(receivedExtraction.rawResponse, null, 2));
+    setCopiedPayload(true);
+    setTimeout(() => setCopiedPayload(false), 2000);
+  };
+
+  const handleClearExtraction = () => {
+    setReceivedExtraction(null);
+    setExtractionError("");
+    setExtractionInputText("");
+    setRawJsonInput("");
+    setShowRawJsonPayload(false);
+  };
+
 
 
 
@@ -1810,71 +1901,287 @@ useEffect(() => {
 
 
         {/* HEADER */}
-
-
-
         {showHeader && (
-
           <header className="forma-form-header">
+            <div className="forma-header-actions-row">
+              <div className="forma-header-meta">
+                <span className="forma-header-badge">
+                  <Sparkles size={12} />
+                  Live Dynamic Form
+                </span>
+                <span className="forma-header-count">
+                  {flatFields.length} field
+                  {flatFields.length === 1 ? "" : "s"}
+                </span>
+              </div>
 
-
-
-            <div className="forma-header-meta">
-
-
-
-              <span className="forma-header-badge">
-
-                <Sparkles size={12} />
-
-                Live Dynamic Form
-
-              </span>
-
-
-
-              <span className="forma-header-count">
-
-                {flatFields.length} field
-
-                {flatFields.length === 1
-
-                  ? ""
-
-                  : "s"}
-
-              </span>
-
-
-
+              {enableExtraction && (
+                <button
+                  type="button"
+                  className={`forma-ai-extract-toggle-btn ${extractionPanelOpen ? "active" : ""}`}
+                  onClick={() => setExtractionPanelOpen((prev) => !prev)}
+                  title="Toggle AI Extraction Panel (Week 3 Point 1)"
+                >
+                  <Sparkles size={14} className="sparkle-icon" />
+                  <span>AI Autofill (Week 3)</span>
+                  {receivedExtraction && (
+                    <span className="forma-extract-received-tag">
+                      <Check size={11} />
+                      Response Received
+                    </span>
+                  )}
+                  {extractionPanelOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+              )}
             </div>
 
-
-
             <h1 className="forma-form-title">
-
-              {schema.title ||
-
-                "Untitled Form"}
-
+              {schema.title || "Untitled Form"}
             </h1>
 
-
-
             {schema.description && (
-
               <p className="forma-form-desc">
-
                 {schema.description}
-
               </p>
+            )}
+          </header>
+        )}
 
+        {/* WEEK 3 (POINT 1): AI EXTRACTION PANEL */}
+        {enableExtraction && extractionPanelOpen && (
+          <section className="forma-ai-extraction-card" aria-label="AI Extraction Panel">
+            <div className="forma-ai-extract-header">
+              <div className="forma-ai-extract-title-group">
+                <div className="forma-ai-extract-icon-wrap">
+                  <Sparkles size={18} color="#6366f1" />
+                </div>
+                <div>
+                  <h3 className="forma-ai-extract-title">AI Data Extraction</h3>
+                  <p className="forma-ai-extract-subtitle">
+                    Week 3 — Point 1: Receive extraction response from AI
+                  </p>
+                </div>
+              </div>
+              <span className="forma-ai-extract-step-badge">
+                Step 1 of 6: Receive Response
+              </span>
+            </div>
+
+            {/* Mode Selector Tabs */}
+            <div className="forma-ai-mode-tabs">
+              <button
+                type="button"
+                className={`forma-ai-mode-tab ${extractionMode === "text" ? "active" : ""}`}
+                onClick={() => {
+                  setExtractionMode("text");
+                  setExtractionError("");
+                }}
+              >
+                <FileText size={13} />
+                Extract from Text / Notes
+              </button>
+              <button
+                type="button"
+                className={`forma-ai-mode-tab ${extractionMode === "raw_json" ? "active" : ""}`}
+                onClick={() => {
+                  setExtractionMode("raw_json");
+                  setExtractionError("");
+                }}
+              >
+                <Code2 size={13} />
+                Paste Raw JSON Response
+              </button>
+            </div>
+
+            {/* Mode 1: Unstructured Text */}
+            {extractionMode === "text" && (
+              <div className="forma-ai-input-section">
+                <div className="forma-ai-input-header">
+                  <label htmlFor="ai-extraction-text" className="forma-ai-input-label">
+                    Incident Description / Claim Notes / Email
+                  </label>
+                  <div className="forma-ai-presets">
+                    <span className="forma-presets-label">Quick samples:</span>
+                    <button
+                      type="button"
+                      className="forma-preset-chip"
+                      onClick={() => handleLoadSampleText("insuranceClaim")}
+                    >
+                      Car Accident Claim
+                    </button>
+                    <button
+                      type="button"
+                      className="forma-preset-chip"
+                      onClick={() => handleLoadSampleText("medicalClaim")}
+                    >
+                      Medical Claim
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  id="ai-extraction-text"
+                  className="forma-ai-extract-textarea"
+                  rows={4}
+                  value={extractionInputText}
+                  onChange={(e) => setExtractionInputText(e.target.value)}
+                  placeholder="e.g. On Oct 4, 2026, Jane Doe had a car accident on Main Street. Vehicle number DL01AB9876 with major bumper damage. Police report was filed, no injuries..."
+                />
+              </div>
             )}
 
+            {/* Mode 2: Raw JSON Input */}
+            {extractionMode === "raw_json" && (
+              <div className="forma-ai-input-section">
+                <div className="forma-ai-input-header">
+                  <label htmlFor="ai-raw-json-text" className="forma-ai-input-label">
+                    Raw Extraction Response Payload (JSON)
+                  </label>
+                  <button
+                    type="button"
+                    className="forma-preset-chip"
+                    onClick={handleLoadSampleRawJson}
+                  >
+                    Load Sample JSON
+                  </button>
+                </div>
 
+                <textarea
+                  id="ai-raw-json-text"
+                  className="forma-ai-extract-textarea monospace"
+                  rows={5}
+                  value={rawJsonInput}
+                  onChange={(e) => setRawJsonInput(e.target.value)}
+                  placeholder={`{\n  "success": true,\n  "extractedData": {\n    "fullName": "Jane Doe",\n    "email": "jane@example.com"\n  }\n}`}
+                />
+              </div>
+            )}
 
-          </header>
+            {/* Error alert */}
+            {extractionError && (
+              <div className="forma-ai-extract-error">
+                <AlertCircle size={15} />
+                <span>{extractionError}</span>
+              </div>
+            )}
 
+            {/* Action buttons */}
+            <div className="forma-ai-extract-actions">
+              {(extractionInputText || rawJsonInput || receivedExtraction) && (
+                <button
+                  type="button"
+                  className="forma-ai-clear-btn"
+                  onClick={handleClearExtraction}
+                  disabled={isExtracting}
+                >
+                  <RotateCcw size={13} />
+                  Clear
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="forma-ai-extract-submit-btn"
+                onClick={handleTriggerExtraction}
+                disabled={isExtracting}
+              >
+                {isExtracting ? (
+                  <>
+                    <RefreshCw size={14} className="spinning" />
+                    Receiving Extraction Response...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} />
+                    Receive Extraction Response
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* POINT 1 SUCCESS RECEIPT CARD */}
+            {receivedExtraction && (
+              <div className="forma-ai-received-card">
+                <div className="forma-ai-received-banner">
+                  <div className="forma-ai-received-header-left">
+                    <div className="forma-ai-check-icon">
+                      <CheckCircle2 size={18} color="#16a34a" />
+                    </div>
+                    <div>
+                      <strong className="forma-ai-received-title">
+                        Extraction Response Received Successfully
+                      </strong>
+                      <div className="forma-ai-received-meta">
+                        <span>Status: 200 OK</span>
+                        <span>•</span>
+                        <span>Source: {receivedExtraction.source}</span>
+                        <span>•</span>
+                        <span>
+                          Received: {new Date(receivedExtraction.receivedAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="forma-ai-count-chip">
+                    {receivedExtraction.fieldCount} fields extracted
+                  </span>
+                </div>
+
+                {/* Extracted keys list */}
+                <div className="forma-ai-keys-container">
+                  <span className="forma-ai-keys-title">Extracted Keys Received:</span>
+                  <div className="forma-ai-keys-wrap">
+                    {receivedExtraction.extractedKeys?.map((key) => (
+                      <span key={key} className="forma-ai-key-pill">
+                        <code>{key}</code>: {String(receivedExtraction.data[key]).slice(0, 24)}
+                        {String(receivedExtraction.data[key]).length > 24 ? "..." : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Expandable Raw Payload View */}
+                <div className="forma-ai-payload-drawer">
+                  <button
+                    type="button"
+                    className="forma-ai-toggle-json-btn"
+                    onClick={() => setShowRawJsonPayload((p) => !p)}
+                  >
+                    <Code2 size={13} />
+                    <span>{showRawJsonPayload ? "Hide" : "Inspect"} Raw Extraction JSON</span>
+                    {showRawJsonPayload ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+
+                  {showRawJsonPayload && (
+                    <div className="forma-ai-json-view">
+                      <div className="forma-ai-json-view-header">
+                        <span>Received JSON Payload ({receivedExtraction.fieldCount} keys)</span>
+                        <button
+                          type="button"
+                          className="forma-ai-copy-json-btn"
+                          onClick={handleCopyPayload}
+                        >
+                          {copiedPayload ? <Check size={12} color="#16a34a" /> : <Copy size={12} />}
+                          <span>{copiedPayload ? "Copied" : "Copy JSON"}</span>
+                        </button>
+                      </div>
+                      <pre className="forma-ai-json-code">
+                        {JSON.stringify(receivedExtraction.rawResponse || receivedExtraction.data, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+
+                {/* Point 1 Completion note */}
+                <div className="forma-ai-point1-footer">
+                  <span className="forma-ai-status-dot"></span>
+                  <span>
+                    <strong>Week 3 (Point 1 Complete):</strong> Extraction response is successfully received, validated, and held in component state.
+                  </span>
+                </div>
+              </div>
+            )}
+          </section>
         )}
 
 
