@@ -33,6 +33,7 @@ import { evaluateConditionRule } from "../utils/conditionEvaluator";
 import {
   requestExtraction,
   receiveExtractionResponse,
+  mapExtractedKeysToSchema,
   SAMPLE_EXTRACTION_PROMPTS,
   SAMPLE_RAW_RESPONSES,
 } from "../services/aiExtractionService";
@@ -44,6 +45,7 @@ function DynamicForm({
   showHeader = true,
   initialExtractionResponse = null,
   onReceiveExtractionResponse = null,
+  onMappingComplete = null,
   enableExtraction = true,
 }) {
 
@@ -89,6 +91,23 @@ function DynamicForm({
   const [receivedExtraction, setReceivedExtraction] = useState(null);
   const [showRawJsonPayload, setShowRawJsonPayload] = useState(false);
   const [copiedPayload, setCopiedPayload] = useState(false);
+
+  // Point 2: Mapped JSON keys state
+  const [mappingResult, setMappingResult] = useState(null);
+  const [showMappingBreakdown, setShowMappingBreakdown] = useState(true);
+
+  // Automatically map JSON keys to schema fields when extraction is received
+  useEffect(() => {
+    if (receivedExtraction?.data && flatFields.length > 0) {
+      const mapped = mapExtractedKeysToSchema(receivedExtraction.data, flatFields);
+      setMappingResult(mapped);
+      if (onMappingComplete) {
+        onMappingComplete(mapped);
+      }
+    } else {
+      setMappingResult(null);
+    }
+  }, [receivedExtraction, flatFields, onMappingComplete]);
 
   // Receive extraction response if passed via props
   useEffect(() => {
@@ -164,6 +183,7 @@ function DynamicForm({
 
   const handleClearExtraction = () => {
     setReceivedExtraction(null);
+    setMappingResult(null);
     setExtractionError("");
     setExtractionInputText("");
     setRawJsonInput("");
@@ -2179,6 +2199,116 @@ useEffect(() => {
                     <strong>Week 3 (Point 1 Complete):</strong> Extraction response is successfully received, validated, and held in component state.
                   </span>
                 </div>
+
+                {/* =========================================================
+                    WEEK 3 (POINT 2): KEY MAPPING BREAKDOWN
+                    ========================================================= */}
+                {mappingResult && (
+                  <div className="forma-ai-mapping-section">
+                    <div className="forma-ai-mapping-header">
+                      <div className="forma-ai-mapping-title-group">
+                        <span className="forma-ai-step2-badge">
+                          Point 2: Map JSON Keys to Field Names
+                        </span>
+                        <div className="forma-ai-mapping-stats">
+                          <span className="forma-mapping-stat-pill success">
+                            {mappingResult.stats.totalMapped} / {mappingResult.stats.totalFieldsCount} Mapped ({mappingResult.stats.coveragePercentage}% Coverage)
+                          </span>
+                          {mappingResult.stats.unmappedKeysCount > 0 && (
+                            <span className="forma-mapping-stat-pill warning">
+                              {mappingResult.stats.unmappedKeysCount} Unmapped AI Key{mappingResult.stats.unmappedKeysCount === 1 ? "" : "s"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="forma-ai-toggle-table-btn"
+                        onClick={() => setShowMappingBreakdown((v) => !v)}
+                      >
+                        <span>{showMappingBreakdown ? "Hide" : "Inspect"} Key Mapping</span>
+                        {showMappingBreakdown ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                      </button>
+                    </div>
+
+                    {showMappingBreakdown && (
+                      <div className="forma-ai-mapping-body">
+                        <div className="forma-ai-mapping-table-wrap">
+                          <table className="forma-ai-mapping-table">
+                            <thead>
+                              <tr>
+                                <th>AI JSON Key</th>
+                                <th>Match Type</th>
+                                <th>Form Schema Field</th>
+                                <th>Mapped Value Preview</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {mappingResult.mappingDetails.map((item) => (
+                                <tr key={item.fieldId} className="forma-mapping-row">
+                                <td className="forma-mapping-json-key">
+                                  <code>{item.jsonKey}</code>
+                                  <span className="forma-mapping-raw-val">
+                                    "{String(item.originalValue).slice(0, 24)}
+                                    {String(item.originalValue).length > 24 ? "..." : ""}"
+                                  </span>
+                                </td>
+                                <td className="forma-mapping-match-type">
+                                  <span className={`forma-match-badge ${item.matchType}`}>
+                                    {item.matchType === "exact" && "Exact"}
+                                    {item.matchType === "normalized" && "Normalized"}
+                                    {item.matchType === "alias" && "Alias"}
+                                    {item.matchType === "label" && "Label"}
+                                    {item.matchType === "fuzzy" && "Fuzzy"}
+                                  </span>
+                                </td>
+                                <td className="forma-mapping-field-target">
+                                  <strong>{item.fieldLabel}</strong>
+                                  <span className="forma-field-meta-row">
+                                    <code>{item.fieldId}</code>
+                                    <span className="forma-field-type-tag">{item.fieldType}</span>
+                                  </span>
+                                </td>
+                                <td className="forma-mapping-value-cell">
+                                  <span className="forma-mapping-final-val">
+                                    {String(item.mappedValue).slice(0, 32)}
+                                    {String(item.mappedValue).length > 32 ? "..." : ""}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Unmapped AI Keys if any */}
+                      {mappingResult.unmappedKeys.length > 0 && (
+                        <div className="forma-unmapped-keys-box">
+                          <span className="forma-unmapped-title">
+                            Unmapped AI JSON Keys (Not in Schema):
+                          </span>
+                          <div className="forma-unmapped-chips">
+                            {mappingResult.unmappedKeys.map((uk) => (
+                              <span key={uk.key} className="forma-unmapped-chip">
+                                <code>{uk.key}</code>: "{String(uk.value).slice(0, 16)}"
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Point 2 Completion Footer */}
+                  <div className="forma-ai-point2-footer">
+                    <span className="forma-ai-status-dot"></span>
+                    <span>
+                      <strong>Week 3 (Point 2 Complete):</strong> JSON keys successfully mapped to schema field names ({mappingResult.stats.totalMapped} mapped fields). Ready for <strong>Point 3: Use React Hook Form setValue()</strong>.
+                    </span>
+                  </div>
+                </div>
+              )}
               </div>
             )}
           </section>

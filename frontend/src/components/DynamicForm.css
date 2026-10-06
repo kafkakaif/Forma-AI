@@ -938,3 +938,284 @@
   flex-shrink: 0;
 }
 
+/* =========================================================
+   WEEK 3 (POINT 2): KEY MAPPING BREAKDOWN STYLES
+   ========================================================= */
+
+.forma-ai-mapping-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.forma-ai-mapping-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.forma-ai-mapping-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.forma-ai-step2-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.forma-ai-mapping-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.forma-mapping-stat-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.forma-mapping-stat-pill.success {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.forma-mapping-stat-pill.warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.forma-ai-toggle-table-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.forma-ai-toggle-table-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.forma-ai-mapping-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.forma-ai-mapping-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.forma-ai-mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.forma-ai-mapping-table th {
+  background: #f8fafc;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.forma-ai-mapping-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.forma-mapping-row:hover td {
+  background: #f8fafc;
+}
+
+.forma-mapping-json-key {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.forma-mapping-json-key code {
+  color: #4338ca;
+  background: #eef2ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  width: fit-content;
+}
+
+.forma-mapping-raw-val {
+  font-size: 10.5px;
+  color: #64748b;
+  font-style: italic;
+}
+
+.forma-match-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.forma-match-badge.exact {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.forma-match-badge.normalized {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.forma-match-badge.alias {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.forma-match-badge.label {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.forma-match-badge.fuzzy {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.forma-mapping-field-target {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.forma-mapping-field-target strong {
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.forma-field-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.forma-field-meta-row code {
+  color: #64748b;
+  font-size: 10.5px;
+}
+
+.forma-field-type-tag {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.forma-mapping-value-cell {
+  color: #0f172a;
+}
+
+.forma-mapping-final-val {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* Unmapped Keys Box */
+.forma-unmapped-keys-box {
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.forma-unmapped-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.forma-unmapped-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.forma-unmapped-chip {
+  padding: 2px 7px;
+  background: #ffffff;
+  border: 1px solid #fef08a;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #78350f;
+}
+
+.forma-unmapped-chip code {
+  font-weight: 700;
+}
+
+/* Point 2 Completion Footer */
+.forma-ai-point2-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px dashed #86efac;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: #166534;
+}
+
+

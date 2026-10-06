@@ -291,3 +291,391 @@ export async function requestExtraction({ text, schema = null, formId = null, si
     return normalizeExtractionResponse(simulated, "smart_fallback_simulator");
   }
 }
+
+// =========================================================
+// WEEK 3 (POINT 2): MAP JSON KEYS TO FIELD NAMES
+// =========================================================
+
+/**
+ * Strips underscores, dashes, spaces and lowercases a key
+ * e.g. "full_name" -> "fullname", "Vehicle-Number" -> "vehiclenumber"
+ */
+export function canonicalizeKey(key) {
+  if (!key || typeof key !== "string") return "";
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Comprehensive dictionary of common field aliases & synonyms
+ * Maps canonical form field keys to common AI extraction variants
+ */
+export const COMMON_FIELD_ALIASES = {
+  // Personal information
+  fullName: [
+    "fullname", "full_name", "name", "clientname", "client_name",
+    "customername", "customer_name", "patientname", "patient_name",
+    "drivername", "driver_name", "claimantname", "claimant_name",
+    "user_name", "username", "applicantname", "applicant_name", "person_name"
+  ],
+  email: [
+    "email", "emailaddress", "email_address", "mail", "user_email",
+    "contact_email", "patient_email", "customer_email", "client_email"
+  ],
+  phone: [
+    "phone", "phonenumber", "phone_number", "telephone", "mobile",
+    "mobilenumber", "mobile_number", "contactnumber", "contact_number",
+    "cell", "cellphone", "contact_phone", "tel"
+  ],
+
+  // Incident & Insurance details
+  claimType: [
+    "claimtype", "claim_type", "typeofclaim", "type_of_claim",
+    "incidenttype", "incident_type", "policytype", "policy_type", "type"
+  ],
+  incidentDate: [
+    "incidentdate", "incident_date", "dateofincident", "date_of_incident",
+    "accidentdate", "accident_date", "occurrencedate", "occurrence_date",
+    "treatmentdate", "treatment_date", "eventdate", "event_date", "date"
+  ],
+  vehicleNumber: [
+    "vehiclenumber", "vehicle_number", "vehicleno", "vehicle_no",
+    "registrationnumber", "registration_number", "regnumber", "reg_number",
+    "regno", "reg_no", "licenseplate", "license_plate", "plate_number",
+    "plateno", "plate_no", "carnumber", "car_number"
+  ],
+  accidentOccurred: [
+    "accidentoccurred", "accident_occurred", "didaccidentoccur", "did_accident_occur",
+    "accidenthappened", "accident_happened", "hasaccident", "has_accident",
+    "wasaccident", "was_accident", "accident"
+  ],
+  accidentLocation: [
+    "accidentlocation", "accident_location", "placeofincident", "place_of_incident",
+    "incidentlocation", "incident_location", "accidentplace", "accident_place",
+    "location", "site", "address", "venue", "street"
+  ],
+  vehicleDamaged: [
+    "vehicledamaged", "vehicle_damaged", "wasvehicledamaged", "was_vehicle_damaged",
+    "isvehicledamaged", "is_vehicle_damaged", "cardamaged", "car_damaged",
+    "vehicledamage", "vehicle_damage", "hasdamage", "has_damage"
+  ],
+  damageType: [
+    "damagetype", "damage_type", "typeofdamage", "type_of_damage",
+    "damageseverity", "damage_severity", "severity", "damageextent",
+    "damage_extent", "damagelevel", "damage_level"
+  ],
+  majorDamageDetails: [
+    "majordamagedetails", "major_damage_details", "damagedetails", "damage_details",
+    "damagedescription", "damage_description", "damagesummary", "damage_summary",
+    "majordamage", "major_damage", "extentofdamage", "extent_of_damage"
+  ],
+  policeReport: [
+    "policereport", "police_report", "waspolicereportfiled", "was_police_report_filed",
+    "policereportfiled", "police_report_filed", "firfiled", "fir_filed",
+    "policecase", "police_case", "policenotified", "police_notified"
+  ],
+  injuries: [
+    "injuries", "wasanyoneinjured", "was_anyone_injured", "anyinjuries", "any_injuries",
+    "injuryoccurred", "injury_occurred", "injuriesreported", "injuries_reported",
+    "hasinjuries", "has_injuries", "anyoneinjured", "anyone_injured"
+  ],
+  injuryDetails: [
+    "injurydetails", "injury_details", "injuriesdetails", "injuries_details",
+    "injurydescription", "injury_description", "medicaldetails", "medical_details",
+    "injuriessustained", "injuries_sustained", "extentofinjuries"
+  ],
+  description: [
+    "description", "incidentdescription", "incident_description", "details",
+    "incidentdetails", "incident_details", "summary", "incidentsummary",
+    "incident_summary", "narrative", "statement", "notes", "remarks", "explanation"
+  ],
+
+  // Healthcare / Medical domain
+  patientName: [
+    "patientname", "patient_name", "fullname", "full_name", "name"
+  ],
+  treatmentDate: [
+    "treatmentdate", "treatment_date", "dateoftreatment", "date_of_treatment",
+    "admissiondate", "admission_date", "incidentdate", "incident_date", "date"
+  ],
+  treatmentType: [
+    "treatmenttype", "treatment_type", "typeoftreatment", "type_of_treatment",
+    "proceduretype", "procedure_type", "medicalcare_type"
+  ],
+  hospitalDays: [
+    "hospitaldays", "hospital_days", "daysofstay", "days_of_stay",
+    "daysinhospital", "days_in_hospital", "numberofdays", "number_of_days",
+    "stayduration", "duration_days"
+  ],
+  consent: [
+    "consent", "agreement", "confirmed", "acknowledged", "verified", "terms"
+  ],
+};
+
+/**
+ * Normalizes extracted value to match target field type and options
+ */
+export function normalizeFieldValue(value, field) {
+  if (value === null || value === undefined) return "";
+
+  const fieldType = field?.type || "text";
+
+  // Radio & Checkbox boolean coercion
+  if (fieldType === "radio" || fieldType === "checkbox") {
+    const stringVal = String(value).trim().toLowerCase();
+    const isAffirmative = stringVal === "true" || stringVal === "yes" || stringVal === "1" || value === true;
+    const isNegative = stringVal === "false" || stringVal === "no" || stringVal === "0" || value === false;
+
+    if (Array.isArray(field.options) && field.options.length > 0) {
+      // Find matching option
+      if (isAffirmative) {
+        const yesOpt = field.options.find(
+          (opt) => String(opt.value || opt).toLowerCase() === "yes" || String(opt.label || "").toLowerCase() === "yes"
+        );
+        if (yesOpt) return yesOpt.value ?? yesOpt;
+      }
+      if (isNegative) {
+        const noOpt = field.options.find(
+          (opt) => String(opt.value || opt).toLowerCase() === "no" || String(opt.label || "").toLowerCase() === "no"
+        );
+        if (noOpt) return noOpt.value ?? noOpt;
+      }
+      // Exact match with any option
+      const match = field.options.find(
+        (opt) =>
+          String(opt.value || opt).toLowerCase() === stringVal ||
+          String(opt.label || "").toLowerCase() === stringVal
+      );
+      if (match) return match.value ?? match;
+    }
+
+    if (fieldType === "checkbox") return isAffirmative;
+    return isAffirmative ? "yes" : isNegative ? "no" : String(value);
+  }
+
+  // Select dropdown options matching
+  if (fieldType === "select" && Array.isArray(field.options)) {
+    const stringVal = String(value).trim().toLowerCase();
+    // Try exact value or label match
+    const match = field.options.find(
+      (opt) =>
+        String(opt.value || opt).toLowerCase() === stringVal ||
+        String(opt.label || "").toLowerCase() === stringVal
+    );
+    if (match) return match.value ?? match;
+
+    // Partial/heuristic match for options
+    const partialMatch = field.options.find(
+      (opt) =>
+        stringVal.includes(String(opt.value || opt).toLowerCase()) ||
+        String(opt.label || "").toLowerCase().includes(stringVal)
+    );
+    if (partialMatch) return partialMatch.value ?? partialMatch;
+  }
+
+  // Number coercion
+  if (fieldType === "number") {
+    if (typeof value === "number") return value;
+    const cleaned = String(value).replace(/[^0-9.-]/g, "");
+    const num = Number(cleaned);
+    return isNaN(num) ? value : num;
+  }
+
+  // Date normalization (YYYY-MM-DD)
+  if (fieldType === "date") {
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+      return value.trim();
+    }
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split("T")[0];
+    }
+  }
+
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+}
+
+/**
+ * Point 2: Maps extracted JSON keys to form schema field names
+ *
+ * Evaluation Order:
+ * 1. Exact match (jsonKey === field.id)
+ * 2. Canonical match (canonicalize(jsonKey) === canonicalize(field.id))
+ * 3. Canonical label match (canonicalize(jsonKey) === canonicalize(field.label))
+ * 4. Semantic alias match (via COMMON_FIELD_ALIASES)
+ * 5. Token containment match
+ *
+ * @param {Object} extractedData - Key-value map from extraction response
+ * @param {Array} fields - Array of schema field definitions
+ * @returns {Object} Mapped values, mapping details, unmapped keys and unmapped fields
+ */
+export function mapExtractedKeysToSchema(extractedData, fields = []) {
+  if (!extractedData || typeof extractedData !== "object") {
+    return {
+      mappedValues: {},
+      mappingDetails: [],
+      unmappedKeys: [],
+      unmappedFields: fields || [],
+      stats: {
+        totalExtractedKeys: 0,
+        totalMapped: 0,
+        unmappedKeysCount: 0,
+        totalFieldsCount: fields?.length || 0,
+        coveragePercentage: 0,
+      },
+    };
+  }
+
+  const jsonKeys = Object.keys(extractedData);
+  const mappedValues = {};
+  const mappingDetails = [];
+  const matchedJsonKeys = new Set();
+  const matchedFieldIds = new Set();
+
+  // Iterate over each field in the form schema
+  for (const field of fields) {
+    const fieldId = field.id || field.name;
+    if (!fieldId) continue;
+
+    const fieldCanonical = canonicalizeKey(fieldId);
+    const labelCanonical = canonicalizeKey(field.label || "");
+    const aliases = (COMMON_FIELD_ALIASES[fieldId] || []).map(canonicalizeKey);
+
+    let bestMatch = null;
+
+    // Check each JSON key for a match
+    for (const jsonKey of jsonKeys) {
+      if (matchedJsonKeys.has(jsonKey)) continue;
+
+      const rawValue = extractedData[jsonKey];
+      if (rawValue === undefined || rawValue === null || rawValue === "") continue;
+
+      const keyCanonical = canonicalizeKey(jsonKey);
+
+      // 1. Exact match
+      if (jsonKey === fieldId) {
+        bestMatch = {
+          jsonKey,
+          matchType: "exact",
+          confidence: 1.0,
+          rawValue,
+        };
+        break;
+      }
+
+      // 2. Canonical key match (ignoring underscores/casing)
+      if (keyCanonical === fieldCanonical) {
+        bestMatch = {
+          jsonKey,
+          matchType: "normalized",
+          confidence: 0.98,
+          rawValue,
+        };
+        break;
+      }
+
+      // 3. Label match
+      if (labelCanonical && keyCanonical === labelCanonical) {
+        bestMatch = {
+          jsonKey,
+          matchType: "label",
+          confidence: 0.95,
+          rawValue,
+        };
+        break;
+      }
+
+      // 4. Semantic alias match
+      if (aliases.includes(keyCanonical)) {
+        bestMatch = {
+          jsonKey,
+          matchType: "alias",
+          confidence: 0.92,
+          rawValue,
+        };
+        break;
+      }
+
+      // Also check reverse alias mapping (if jsonKey has aliases that include fieldCanonical)
+      const reverseAliases = (COMMON_FIELD_ALIASES[jsonKey] || []).map(canonicalizeKey);
+      if (reverseAliases.includes(fieldCanonical)) {
+        bestMatch = {
+          jsonKey,
+          matchType: "alias",
+          confidence: 0.90,
+          rawValue,
+        };
+        break;
+      }
+
+      // 5. Token containment match (e.g. keyCanonical contains fieldCanonical or vice versa)
+      if (
+        (keyCanonical.length > 4 && fieldCanonical.length > 4) &&
+        (keyCanonical.includes(fieldCanonical) || fieldCanonical.includes(keyCanonical))
+      ) {
+        if (!bestMatch || bestMatch.confidence < 0.82) {
+          bestMatch = {
+            jsonKey,
+            matchType: "fuzzy",
+            confidence: 0.82,
+            rawValue,
+          };
+        }
+      }
+    }
+
+    if (bestMatch) {
+      const normalizedValue = normalizeFieldValue(bestMatch.rawValue, field);
+      mappedValues[fieldId] = normalizedValue;
+      matchedJsonKeys.add(bestMatch.jsonKey);
+      matchedFieldIds.add(fieldId);
+
+      mappingDetails.push({
+        fieldId,
+        fieldLabel: field.label || fieldId,
+        fieldType: field.type || "text",
+        jsonKey: bestMatch.jsonKey,
+        originalValue: bestMatch.rawValue,
+        mappedValue: normalizedValue,
+        matchType: bestMatch.matchType,
+        confidence: bestMatch.confidence,
+      });
+    }
+  }
+
+  // Collect unmapped JSON keys
+  const unmappedKeys = jsonKeys
+    .filter((k) => !matchedJsonKeys.has(k))
+    .map((k) => ({
+      key: k,
+      value: extractedData[k],
+    }));
+
+  // Collect unmapped schema fields
+  const unmappedFields = fields
+    .filter((f) => !matchedFieldIds.has(f.id || f.name))
+    .map((f) => ({
+      id: f.id || f.name,
+      label: f.label || f.id || f.name,
+      type: f.type || "text",
+      required: Boolean(f.required),
+    }));
+
+  const totalFields = fields.length;
+  const totalMapped = matchedFieldIds.size;
+  const coveragePercentage = totalFields > 0 ? Math.round((totalMapped / totalFields) * 100) : 0;
+
+  return {
+    mappedValues,
+    mappingDetails,
+    unmappedKeys,
+    unmappedFields,
+    stats: {
+      totalExtractedKeys: jsonKeys.length,
+      totalMapped,
+      unmappedKeysCount: unmappedKeys.length,
+      totalFieldsCount: totalFields,
+      coveragePercentage,
+    },
+  };
+}
+
