@@ -34,6 +34,7 @@ import {
   requestExtraction,
   receiveExtractionResponse,
   mapExtractedKeysToSchema,
+  applyMappedValuesWithHookForm,
   SAMPLE_EXTRACTION_PROMPTS,
   SAMPLE_RAW_RESPONSES,
 } from "../services/aiExtractionService";
@@ -46,8 +47,22 @@ function DynamicForm({
   initialExtractionResponse = null,
   onReceiveExtractionResponse = null,
   onMappingComplete = null,
+  onValuesApplied = null,
   enableExtraction = true,
 }) {
+  const {
+    register,
+    handleSubmit,
+    watch,
+    unregister,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm({
+    mode: "onBlur",
+  });
+
+  const formValues = watch();
 
   const [submittedData, setSubmittedData] =
 
@@ -96,7 +111,30 @@ function DynamicForm({
   const [mappingResult, setMappingResult] = useState(null);
   const [showMappingBreakdown, setShowMappingBreakdown] = useState(true);
 
-  // Automatically map JSON keys to schema fields when extraction is received
+  // Point 3: setValue application state
+  const [valuesAppliedWithSetValue, setValuesAppliedWithSetValue] = useState(false);
+  const [appliedFieldsCount, setAppliedFieldsCount] = useState(0);
+  const [autoApplySetValue, setAutoApplySetValue] = useState(true);
+
+  const handleApplyWithSetValue = useCallback((customMapped = null) => {
+    const toApply = customMapped || mappingResult?.mappedValues;
+    if (!toApply || typeof toApply !== "object") return;
+
+    const count = applyMappedValuesWithHookForm(setValue, toApply, {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+
+    setValuesAppliedWithSetValue(true);
+    setAppliedFieldsCount(count);
+
+    if (onValuesApplied) {
+      onValuesApplied(toApply, count);
+    }
+  }, [mappingResult, setValue, onValuesApplied]);
+
+  // Automatically map JSON keys to schema fields and auto-apply with setValue()
   useEffect(() => {
     if (receivedExtraction?.data && flatFields.length > 0) {
       const mapped = mapExtractedKeysToSchema(receivedExtraction.data, flatFields);
@@ -104,10 +142,18 @@ function DynamicForm({
       if (onMappingComplete) {
         onMappingComplete(mapped);
       }
+      if (autoApplySetValue && mapped.mappedValues && Object.keys(mapped.mappedValues).length > 0) {
+        const timer = setTimeout(() => {
+          handleApplyWithSetValue(mapped.mappedValues);
+        }, 50);
+        return () => clearTimeout(timer);
+      }
     } else {
       setMappingResult(null);
+      setValuesAppliedWithSetValue(false);
+      setAppliedFieldsCount(0);
     }
-  }, [receivedExtraction, flatFields, onMappingComplete]);
+  }, [receivedExtraction, flatFields, onMappingComplete, autoApplySetValue, handleApplyWithSetValue]);
 
   // Receive extraction response if passed via props
   useEffect(() => {
@@ -184,6 +230,8 @@ function DynamicForm({
   const handleClearExtraction = () => {
     setReceivedExtraction(null);
     setMappingResult(null);
+    setValuesAppliedWithSetValue(false);
+    setAppliedFieldsCount(0);
     setExtractionError("");
     setExtractionInputText("");
     setRawJsonInput("");
@@ -304,32 +352,6 @@ const draftKey = useMemo(() => {
     return [];
 
   }, [schema]);
-
-
-
-  const {
-
-    register,
-
-    handleSubmit,
-
-    watch,
-
-    unregister,
-
-    reset,
-
-    formState: { errors },
-
-  } = useForm({
-
-    mode: "onBlur",
-
-  });
-
-
-
-  const formValues = watch();
 
   /**
 
@@ -2304,8 +2326,70 @@ useEffect(() => {
                   <div className="forma-ai-point2-footer">
                     <span className="forma-ai-status-dot"></span>
                     <span>
-                      <strong>Week 3 (Point 2 Complete):</strong> JSON keys successfully mapped to schema field names ({mappingResult.stats.totalMapped} mapped fields). Ready for <strong>Point 3: Use React Hook Form setValue()</strong>.
+                      <strong>Week 3 (Point 2 Complete):</strong> JSON keys successfully mapped to schema field names ({mappingResult.stats.totalMapped} mapped fields).
                     </span>
+                  </div>
+
+                  {/* =========================================================
+                      WEEK 3 (POINT 3): USE REACT HOOK FORM setValue()
+                      ========================================================= */}
+                  <div className="forma-ai-setvalue-section">
+                    <div className="forma-ai-setvalue-header">
+                      <div className="forma-ai-setvalue-title-row">
+                        <span className="forma-ai-step3-badge">
+                          Point 3: React Hook Form setValue()
+                        </span>
+                        <span className="forma-setvalue-status-text">
+                          {valuesAppliedWithSetValue
+                            ? `✓ ${appliedFieldsCount} fields populated via setValue()`
+                            : "Mapped values ready to apply to form"}
+                        </span>
+                      </div>
+
+                      <div className="forma-setvalue-controls">
+                        <label className="forma-auto-apply-label" title="Automatically call setValue() when extraction completes">
+                          <input
+                            type="checkbox"
+                            checked={autoApplySetValue}
+                            onChange={(e) => setAutoApplySetValue(e.target.checked)}
+                          />
+                          <span>Auto-fill via setValue()</span>
+                        </label>
+
+                        <button
+                          type="button"
+                          className="forma-ai-run-setvalue-btn"
+                          onClick={() => handleApplyWithSetValue()}
+                          title="Apply mapped values to React Hook Form inputs"
+                        >
+                          <Sparkles size={13} />
+                          <span>{valuesAppliedWithSetValue ? "Re-apply setValue()" : "Apply to Form (setValue)"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {valuesAppliedWithSetValue && (
+                      <div className="forma-setvalue-success-banner">
+                        <div className="forma-setvalue-success-left">
+                          <CheckCircle2 size={16} color="#16a34a" />
+                          <div>
+                            <strong>setValue() Executed:</strong>
+                            <span> React Hook Form inputs populated with <code>shouldValidate: true</code>, <code>shouldDirty: true</code>, <code>shouldTouch: true</code>.</span>
+                          </div>
+                        </div>
+                        <span className="forma-setvalue-count-tag">
+                          {appliedFieldsCount} inputs updated
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Point 3 Completion Footer */}
+                    <div className="forma-ai-point3-footer">
+                      <span className="forma-ai-status-dot"></span>
+                      <span>
+                        <strong>Week 3 (Point 3 Complete):</strong> React Hook Form <code>setValue()</code> successfully called for all mapped fields ({appliedFieldsCount} inputs populated). Ready for <strong>Point 4: Mark AI-filled fields</strong>.
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}

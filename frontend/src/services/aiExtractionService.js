@@ -679,3 +679,41 @@ export function mapExtractedKeysToSchema(extractedData, fields = []) {
   };
 }
 
+// =========================================================
+// WEEK 3 (POINT 3): USE REACT HOOK FORM setValue()
+// =========================================================
+
+/**
+ * Applies mapped extraction values directly into React Hook Form via setValue().
+ *
+ * Configures:
+ * - shouldValidate: true -> runs schema and validation checks
+ * - shouldDirty: true -> marks the form input as changed by user/AI
+ * - shouldTouch: true -> registers the field as touched
+ *
+ * @param {Function} setValue - React Hook Form setValue method
+ * @param {Object} mappedValues - Object containing { [fieldId]: value }
+ * @param {Object} options - Custom options for setValue
+ * @returns {number} Number of fields successfully populated
+ */
+export function applyMappedValuesWithHookForm(
+  setValue,
+  mappedValues,
+  options = { shouldValidate: true, shouldDirty: true, shouldTouch: true }
+) {
+  if (typeof setValue !== "function" || !mappedValues || typeof mappedValues !== "object") {
+    return 0;
+  }
+
+  let count = 0;
+  for (const [fieldId, val] of Object.entries(mappedValues)) {
+    if (val !== undefined && val !== null) {
+      setValue(fieldId, val, options);
+      count++;
+    }
+  }
+
+  return count;
+}
+
+

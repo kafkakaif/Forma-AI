@@ -1218,4 +1218,154 @@
   color: #166534;
 }
 
+/* =========================================================
+   WEEK 3 (POINT 3): REACT HOOK FORM setValue() STYLES
+   ========================================================= */
+
+.forma-ai-setvalue-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.forma-ai-setvalue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.forma-ai-step3-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.forma-ai-step3-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.forma-setvalue-status-text {
+  font-size: 12px;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.forma-setvalue-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.forma-auto-apply-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+}
+
+.forma-auto-apply-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #4f46e5;
+}
+
+.forma-ai-run-setvalue-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #4f46e5;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
+}
+
+.forma-ai-run-setvalue-btn:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+}
+
+.forma-setvalue-success-banner {
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.forma-setvalue-success-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #166534;
+}
+
+.forma-setvalue-success-left code {
+  background: #dcfce7;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #14532d;
+}
+
+.forma-setvalue-count-tag {
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #86efac;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.forma-ai-point3-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px dashed #86efac;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: #166534;
+}
+
+.forma-ai-point3-footer code {
+  background: #dcfce7;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+
 
