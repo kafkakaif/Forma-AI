@@ -1,19 +1,10 @@
 import React, {
-
   useEffect,
-
   useState,
-
   useMemo,
-
   useCallback,
-
 } from "react";
-
-
-
 import { useForm } from "react-hook-form";
-
 import {
   AlertCircle,
   CheckCircle2,
@@ -28,7 +19,6 @@ import {
   FileText,
   RefreshCw,
 } from "lucide-react";
-
 import { evaluateConditionRule } from "../utils/conditionEvaluator";
 import {
   requestExtraction,
@@ -41,7 +31,6 @@ import {
   SAMPLE_RAW_RESPONSES,
 } from "../services/aiExtractionService";
 import "./DynamicForm.css";
-
 function DynamicForm({
   schema,
   onSubmitSuccess,
@@ -64,9 +53,7 @@ function DynamicForm({
   } = useForm({
     mode: "onBlur",
   });
-
   const formValues = watch();
-
   const draftKey = useMemo(() => {
     if (!schema) return null;
     return `forma_draft_${
@@ -77,7 +64,6 @@ function DynamicForm({
       "form"
     }`;
   }, [schema]);
-
   /**
    * Normalize fields:
    * Supports both:
@@ -86,7 +72,6 @@ function DynamicForm({
    */
   const flatFields = useMemo(() => {
     if (!schema) return [];
-
     // Flat schema
     if (
       Array.isArray(schema.fields) &&
@@ -94,7 +79,6 @@ function DynamicForm({
     ) {
       return schema.fields;
     }
-
     // Section-based schema
     if (
       Array.isArray(schema.sections) &&
@@ -117,39 +101,19 @@ function DynamicForm({
       });
       return out;
     }
-
     return [];
   }, [schema]);
-
   const [submittedData, setSubmittedData] =
     useState(null);
-
-
-
   const [isSubmitting, setIsSubmitting] =
-
     useState(false);
-
-
-
   const [submitError, setSubmitError] =
-
     useState("");
-
-
-
   const [submitNotice, setSubmitNotice] =
-
     useState("");
-
-
-
   const [validationAttempted, setValidationAttempted] =
-
     useState(false);
-
   const [draftLoaded, setDraftLoaded] = useState(false);
-
   // =========================================================
   // WEEK 3 (POINT 1): RECEIVE EXTRACTION RESPONSE
   // =========================================================
@@ -162,36 +126,28 @@ function DynamicForm({
   const [receivedExtraction, setReceivedExtraction] = useState(null);
   const [showRawJsonPayload, setShowRawJsonPayload] = useState(false);
   const [copiedPayload, setCopiedPayload] = useState(false);
-
   // Point 2: Mapped JSON keys state
   const [mappingResult, setMappingResult] = useState(null);
   const [showMappingBreakdown, setShowMappingBreakdown] = useState(true);
-
   // Point 3: setValue application state
   const [valuesAppliedWithSetValue, setValuesAppliedWithSetValue] = useState(false);
   const [appliedFieldsCount, setAppliedFieldsCount] = useState(0);
   const [autoApplySetValue, setAutoApplySetValue] = useState(true);
-
   // Point 4: Mark AI-filled fields state
   const [aiFilledFields, setAiFilledFields] = useState({});
-
   const handleApplyWithSetValue = useCallback((customMapped = null) => {
     const toApply = customMapped || mappingResult?.mappedValues;
     if (!toApply || typeof toApply !== "object") return;
-
     const count = applyMappedValuesWithHookForm(setValue, toApply, {
       shouldValidate: true,
       shouldDirty: true,
       shouldTouch: true,
     });
-
     setValuesAppliedWithSetValue(true);
     setAppliedFieldsCount(count);
-
     if (onValuesApplied) {
       onValuesApplied(toApply, count);
     }
-
     // Week 3 Point 4: Mark AI-filled fields
     const marked = markAiFilledFields(toApply, mappingResult?.mappingDetails || []);
     setAiFilledFields(marked);
@@ -199,7 +155,6 @@ function DynamicForm({
       onAiFieldsMarked(marked);
     }
   }, [mappingResult, setValue, onValuesApplied, onAiFieldsMarked]);
-
   // Automatically map JSON keys to schema fields and auto-apply with setValue()
   useEffect(() => {
     if (receivedExtraction?.data && flatFields.length > 0) {
@@ -221,7 +176,6 @@ function DynamicForm({
       setAiFilledFields({});
     }
   }, [receivedExtraction, flatFields, onMappingComplete, autoApplySetValue, handleApplyWithSetValue]);
-
   // Receive extraction response if passed via props
   useEffect(() => {
     if (initialExtractionResponse) {
@@ -237,11 +191,9 @@ function DynamicForm({
       }
     }
   }, [initialExtractionResponse, onReceiveExtractionResponse]);
-
   const handleTriggerExtraction = async () => {
     setIsExtracting(true);
     setExtractionError("");
-
     try {
       if (extractionMode === "raw_json") {
         if (!rawJsonInput.trim()) {
@@ -275,25 +227,21 @@ function DynamicForm({
       setIsExtracting(false);
     }
   };
-
   const handleLoadSampleText = (presetKey = "insuranceClaim") => {
     const text = SAMPLE_EXTRACTION_PROMPTS[presetKey] || SAMPLE_EXTRACTION_PROMPTS.insuranceClaim;
     setExtractionInputText(text);
     setExtractionError("");
   };
-
   const handleLoadSampleRawJson = () => {
     setRawJsonInput(JSON.stringify(SAMPLE_RAW_RESPONSES.insuranceClaim, null, 2));
     setExtractionError("");
   };
-
   const handleCopyPayload = () => {
     if (!receivedExtraction?.rawResponse) return;
     navigator.clipboard.writeText(JSON.stringify(receivedExtraction.rawResponse, null, 2));
     setCopiedPayload(true);
     setTimeout(() => setCopiedPayload(false), 2000);
   };
-
   const handleClearExtraction = () => {
     setReceivedExtraction(null);
     setMappingResult(null);
@@ -305,100 +253,53 @@ function DynamicForm({
     setRawJsonInput("");
     setShowRawJsonPayload(false);
   };
-
-
-
-
-
-
   /**
-
  * Load previously saved draft
-
  */
-
 useEffect(() => {
-
   if (!draftKey) return;
-
-
-
   setDraftLoaded(false);
-
-
-
   try {
-
     const savedDraft = localStorage.getItem(draftKey);
-
-
-
     if (savedDraft) {
-
       const parsed = JSON.parse(savedDraft);
-
-
-
       if (
-
         parsed &&
-
         parsed.values &&
-
         typeof parsed.values === "object"
-
       ) {
-
         reset(parsed.values);
-
       }
-
     }
-
   } catch (error) {
-
     console.warn(
-
       "Unable to load saved draft:",
-
       error
-
     );
-
   }
-
-
-
   setDraftLoaded(true);
-
 }, [draftKey, reset]);
-
   /**
    * Automatically save form progress
    */
   useEffect(() => {
     if (!draftKey || !draftLoaded) return;
-
     const values = formValues || {};
-
     const hasValues = Object.values(values).some((value) => {
       if (Array.isArray(value)) {
         return value.length > 0;
       }
-
       return (
         value !== undefined &&
         value !== null &&
         value !== ""
       );
     });
-
     try {
       if (!hasValues) {
         localStorage.removeItem(draftKey);
         return;
       }
-
       localStorage.setItem(
         draftKey,
         JSON.stringify({
@@ -417,946 +318,476 @@ useEffect(() => {
     draftKey,
     draftLoaded,
   ]);
-
-
-
   /**
-
    * Check whether a field is visible.
-
    * Also supports cascading conditions.
-
    */
-
   const isFieldVisible = useCallback(
-
     (field, values) => {
-
       if (!field.showIf) return true;
-
-
-
       const depField =
-
         field.showIf.field ||
-
         field.showIf.dependentField;
-
-
-
       if (depField) {
-
         const parent = flatFields.find(
-
           (f) =>
-
             (f.id || f.name) === depField
-
         );
-
-
-
         if (
-
           parent &&
-
           !isFieldVisible(parent, values)
-
         ) {
-
           return false;
-
         }
-
       }
-
-
-
       return evaluateConditionRule(
-
         field.showIf,
-
         values
-
       );
-
     },
-
     [flatFields]
-
   );
+// =========================================================
+// WEEK 3 (POINT 5): MISSING REQUIRED FIELD DETECTION
+// =========================================================
+// =========================================================
+// WEEK 3 (POINT 5): MISSING REQUIRED FIELD DETECTION
+// =========================================================
+const missingRequiredFields = useMemo(() => {
+  // Don't show warnings before an AI extraction has happened.
+  if (!receivedExtraction) {
+    return [];
+  }
 
+  return flatFields.filter((field) => {
+    const fieldId = field.id || field.name;
 
+    if (!fieldId || !field.required) {
+      return false;
+    }
 
+    // Ignore fields hidden by conditional logic.
+    if (!isFieldVisible(field, formValues)) {
+      return false;
+    }
+
+    const currentValue = formValues?.[fieldId];
+
+    // Empty array = empty checkbox/multi-value field.
+    if (Array.isArray(currentValue)) {
+      return currentValue.length === 0;
+    }
+
+    // Empty/null/undefined = missing.
+    return (
+      currentValue === undefined ||
+      currentValue === null ||
+      String(currentValue).trim() === ""
+    );
+  });
+}, [
+  receivedExtraction,
+  flatFields,
+  formValues,
+  isFieldVisible,
+]);
+
+  // =========================================================
   /**
-
    * Remove values from fields that become hidden.
-
    */
-
   useEffect(() => {
-
     flatFields.forEach((field) => {
-
       const fieldKey =
-
         field.id || field.name;
-
-
-
       if (
-
         field.showIf &&
-
         !isFieldVisible(field, formValues)
-
       ) {
-
         unregister(fieldKey);
-
       }
-
     });
-
   }, [
-
     formValues,
-
     flatFields,
-
     isFieldVisible,
-
     unregister,
-
   ]);
-
-
-
   /**
-
    * Submit form to backend
-
    */
-
   const handleFormSubmit = async (data) => {
-
     setIsSubmitting(true);
-
     setSubmitError("");
-
     setSubmittedData(null);
-
-
-
     // Keep only currently visible fields
-
     const cleanData = {};
-
-
-
     flatFields.forEach((field) => {
-
       const fieldKey =
-
         field.id || field.name;
-
-
-
       if (
-
         isFieldVisible(field, data) &&
-
         data[fieldKey] !== undefined
-
       ) {
-
         cleanData[fieldKey] =
-
           data[fieldKey];
-
       }
-
     });
-
-
-
     try {
-
       /**
-
        * Use formId for frontend schemas,
-
        * slug for backend schemas,
-
        * id as a fallback.
-
        */
-
       const formIdentifier =
-
         schema?.formId ||
-
         schema?.slug ||
-
         schema?.id;
-
-
-
       if (!formIdentifier) {
-
         throw new Error(
-
           "Form identifier is missing."
-
         );
-
       }
-
-
-
       const response = await fetch(
-
         `http://localhost:5000/api/forms/${encodeURIComponent(
-
           formIdentifier
-
         )}/submit`,
-
         {
-
           method: "POST",
-
-
-
           headers: {
-
             "Content-Type":
-
               "application/json",
-
           },
-
-
-
           body: JSON.stringify({
-
             values: cleanData,
-
           }),
-
         }
-
       );
-
-
-
       let result = {};
-
-
-
       try {
-
         result = await response.json();
-
       } catch {
-
         result = {};
-
       }
-
-
-
       if (!response.ok) {
-
         throw new Error(
-
           result.error ||
-
             "Form submission failed."
-
         );
-
       }
-
-
-
       console.log(
-
         "Forma AI submission saved:",
-
         result
-
       );
-
-
-
       setSubmittedData(cleanData);
-
       if (draftKey) {
         localStorage.removeItem(draftKey);
       }
-
       setSubmitNotice("Submitted directly to backend MongoDB successfully!");
-
-
-
       if (onSubmitSuccess) {
-
         onSubmitSuccess(cleanData);
-
       }
-
     } catch (error) {
-
       console.warn("Backend unavailable for submission:", error);
-
-
-
       // Resilient Fallback: save submission in local storage for offline preview/testing
-
       try {
-
         const localList = JSON.parse(
-
           localStorage.getItem("forma_local_submissions") || "[]"
-
         );
-
         localList.unshift({
-
           id: `sub_${Date.now()}`,
-
           formId: schema?.formId || schema?.slug || schema?.id || "form",
-
           title: schema?.title || "Form Submission",
-
           values: cleanData,
-
           createdAt: new Date().toISOString(),
-
         });
-
         localStorage.setItem(
-
           "forma_local_submissions",
-
           JSON.stringify(localList.slice(0, 50))
-
         );
-
         setSubmittedData(cleanData);
-
         setSubmitNotice("Notice: Backend server (http://localhost:5000) was unreachable. Submission recorded locally in offline mode!");
-
         if (onSubmitSuccess) {
-
           onSubmitSuccess(cleanData);
-
         }
-
       } catch {
-
         setSubmitError(error.message || "Unable to submit the form.");
-
       }
-
     } finally {
-
       setIsSubmitting(false);
-
     }
-
   };
-
-
-
   /**
-
    * Reset form
-
    */
-
   const handleFormReset = () => {
-
     reset();
-
     if (draftKey) {
       localStorage.removeItem(draftKey);
     }
-
     setSubmittedData(null);
-
     setSubmitError("");
-
     setSubmitNotice("");
-
     setValidationAttempted(false);
-
     setAiFilledFields({});
-
   };
-
-
-
   /**
-
    * Empty schema state
-
    */
-
   if (
-
     !schema ||
-
     flatFields.length === 0
-
   ) {
-
     return (
-
       <div className="forma-dynamic-card">
-
         <div
-
           style={{
-
             textAlign: "center",
-
             padding: "30px 20px",
-
           }}
-
         >
-
           <AlertCircle
-
             size={36}
-
             color="#94a3b8"
-
             style={{
-
               marginBottom: 12,
-
             }}
-
           />
-
-
-
           <h3
-
             style={{
-
               margin: "0 0 6px",
-
               color: "#1e293b",
-
             }}
-
           >
-
             No fields available
-
           </h3>
-
-
-
           <p
-
             style={{
-
               margin: 0,
-
               color: "#64748b",
-
               fontSize: 14,
-
             }}
-
           >
-
             This form has no active
-
             fields defined yet.
-
           </p>
-
         </div>
-
       </div>
-
     );
-
   }
-
-
-
   /**
-
    * Render individual field
-
    */
-
   const renderField = (field) => {
-
     const fieldKey =
-
       field.id || field.name;
-
-
-
     const isVisible =
-
       isFieldVisible(
-
         field,
-
         formValues
-
       );
-
-
-
     if (!isVisible) return null;
-
     const isAiFilled = Boolean(aiFilledFields[fieldKey]);
     const aiFieldData = aiFilledFields[fieldKey] || null;
-
-
-
     /**
-
      * Validation rules
-
      */
-
     const validationRules = {
-
       required: field.required
-
         ? field.validation
-
             ?.requiredMessage ||
-
           `${
-
             field.label ||
-
             "This field"
-
           } is required`
-
         : false,
-
-
-
       minLength:
-
         (
-
           field.minLength ||
-
           field.validation?.minLength
-
         )
-
           ? {
-
               value: Number(
-
                 field.minLength ||
-
                   field.validation
-
                     ?.minLength
-
               ),
-
-
-
               message:
-
                 field.validation
-
                   ?.minLengthMessage ||
-
                 `${
-
                   field.label ||
-
                   "Field"
-
                 } must be at least ${
-
                   field.minLength ||
-
                   field.validation
-
                     ?.minLength
-
                 } characters`,
-
             }
-
           : undefined,
-
-
-
       maxLength:
-
         (
-
           field.maxLength ||
-
           field.validation?.maxLength
-
         )
-
           ? {
-
               value: Number(
-
                 field.maxLength ||
-
                   field.validation
-
                     ?.maxLength
-
               ),
-
-
-
               message:
-
                 field.validation
-
                   ?.maxLengthMessage ||
-
                 `${
-
                   field.label ||
-
                   "Field"
-
                 } cannot exceed ${
-
                   field.maxLength ||
-
                   field.validation
-
                     ?.maxLength
-
                 } characters`,
-
             }
-
           : undefined,
-
-
-
       min:
-
         (field.min ||
-
           field.validation?.min) !==
-
           undefined &&
-
         field.type === "number"
-
           ? {
-
               value: Number(
-
                 field.min ||
-
                   field.validation?.min
-
               ),
-
-
-
               message:
-
                 field.validation
-
                   ?.minMessage ||
-
                 `${
-
                   field.label ||
-
                   "Field"
-
                 } must be at least ${
-
                   field.min ||
-
                   field.validation?.min
-
                 }`,
-
             }
-
           : undefined,
-
-
-
       max:
-
         (field.max ||
-
           field.validation?.max) !==
-
           undefined &&
-
         field.type === "number"
-
           ? {
-
               value: Number(
-
                 field.max ||
-
                   field.validation?.max
-
               ),
-
-
-
               message:
-
                 field.validation
-
                   ?.maxMessage ||
-
                 `${
-
                   field.label ||
-
                   "Field"
-
                 } cannot exceed ${
-
                   field.max ||
-
                   field.validation?.max
-
                 }`,
-
             }
-
           : undefined,
-
-
-
       pattern:
-
         (
-
           field.pattern ||
-
           field.validation?.pattern
-
         )
-
           ? {
-
               value: new RegExp(
-
                 field.pattern ||
-
                   field.validation
-
                     ?.pattern
-
               ),
-
-
-
               message:
-
                 field.validation
-
                   ?.message ||
-
                 `${
-
                   field.label ||
-
                   "Field"
-
                 } format is invalid`,
-
             }
-
           : undefined,
-
-
-
       validate: {
-
         ...(field.type ===
-
         "email"
-
           ? {
-
               validEmail: (value) =>
-
                 !value ||
-
                 /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-
                   value
-
                 ) ||
-
                 "Please enter a valid email address",
-
             }
-
           : {}),
-
-
-
         ...(field.type ===
-
           "number" &&
-
         field.validation
-
           ?.integerOnly
-
           ? {
-
               isInteger: (value) =>
-
                 !value ||
-
                 Number.isInteger(
-
                   Number(value)
-
                 ) ||
-
                 `${
-
                   field.label ||
-
                   "Field"
-
                 } must be a whole integer`,
-
             }
-
           : {}),
-
       },
-
     };
-
-
-
     const hasError =
-
       Boolean(errors[fieldKey]);
-
-
-
     /**
-
      * Support both:
-
      *
-
      * ["yes", "no"]
-
      *
-
      * and
-
      *
-
      * [{ label: "Yes", value: "yes" }]
-
      */
-
     const normalizedOptions =
-
       Array.isArray(field.options)
-
         ? field.options.map(
-
             (option) =>
-
               typeof option ===
-
               "string"
-
                 ? {
-
                     label: option,
-
                     value: option,
-
                   }
-
                 : option
-
           )
-
         : [];
-
-
-
     return (
-
       <div
-
         className={`forma-form-group ${isAiFilled ? "forma-group-ai-filled" : ""}`}
-
         key={fieldKey}
-
       >
-
         <div className="forma-form-label">
-
           <span>
-
             {field.label}
-
-
-
             {field.required && (
-
               <span className="required-star">
-
                 *
-
               </span>
-
             )}
-
-
-
             {field.showIf && (
-
               <span
-
                 className="forma-logic-tag"
-
                 title="Conditional logic active"
-
               >
-
                 conditional
-
               </span>
-
             )}
-
             {isAiFilled && (
               <span
                 className="forma-ai-field-badge"
@@ -1366,317 +797,150 @@ useEffect(() => {
                 <span>AI Filled</span>
               </span>
             )}
-
           </span>
-
-
-
           <span className="field-type-pill">
-
             {field.type}
-
           </span>
-
         </div>
-
-
-
         {field.helpText && (
-
           <p className="forma-form-help">
-
             {field.helpText}
-
           </p>
-
         )}
-
-
-
         {/* FIELD TYPE SWITCH */}
-
-
-
         {(() => {
-
           switch (field.type) {
-
             case "textarea":
-
               return (
-
                 <textarea
-
                   id={fieldKey}
-
                   placeholder={
-
                     field.placeholder ||
-
                     `Enter ${
-
                       field.label?.toLowerCase() ||
-
                       "details"
-
                     }...`
-
                   }
-
                   className={`forma-textarea ${
-
                     hasError
-
                       ? "has-error"
-
                       : ""
-
                   } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
-
                   {...register(
-
                     fieldKey,
-
                     validationRules
-
                   )}
-
                 />
-
               );
-
-
-
             case "select":
-
               return (
-
                 <select
-
                   id={fieldKey}
-
                   className={`forma-select ${
-
                     hasError
-
                       ? "has-error"
-
                       : ""
-
                   } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
-
                   {...register(
-
                     fieldKey,
-
                     validationRules
-
                   )}
-
                 >
-
                   <option value="">
-
                     {field.placeholder ||
-
                       "Select an option..."}
-
                   </option>
-
-
-
                   {normalizedOptions.map(
-
                     (option, index) => (
-
                       <option
-
                         key={
-
                           option.value ||
-
                           index
-
                         }
-
                         value={
-
                           option.value
-
                         }
-
                       >
-
                         {option.label}
-
                       </option>
-
                     )
-
                   )}
-
                 </select>
-
               );
-
-
-
             case "radio":
-
               return (
-
                 <div className="forma-radio-group">
-
                   {normalizedOptions.map(
-
                     (option, index) => {
-
                       const isSelected =
-
                         String(
-
                           formValues[
-
                             fieldKey
-
                           ]
-
                         ) ===
-
                         String(
-
                           option.value
-
                         );
-
-
-
                       return (
-
                         <label
-
                           key={
-
                             option.value ||
-
                             index
-
                           }
-
                           className={`forma-radio-card ${
-
                             isSelected
-
                               ? "active"
-
                               : ""
-
                           } ${isSelected && isAiFilled ? "forma-radio-ai-selected" : ""}`}
-
                         >
-
                           <input
-
                             type="radio"
-
                             value={
-
                               option.value
-
                             }
-
                             {...register(
-
                               fieldKey,
-
                               validationRules
-
                             )}
-
                           />
-
-
-
                           <span>
-
                             {option.label}
-
                           </span>
-
                         </label>
-
                       );
-
                     }
-
                   )}
-
                 </div>
-
               );
-
-
-
             case "checkbox":
-
               return (
-
                 <label
-
                   className={`forma-checkbox-card ${
-
                     formValues[fieldKey]
-
                       ? "active"
-
                       : ""
-
                   } ${formValues[fieldKey] && isAiFilled ? "forma-checkbox-ai-filled" : ""}`}
-
                 >
-
                   <input
-
                     type="checkbox"
-
                     {...register(
-
                       fieldKey,
-
                       {
-
                         required:
-
                           field.required
-
                             ? `${
-
                                 field.label ||
-
                                 "This"
-
                               } must be checked`
-
                             : false,
-
                       }
-
                     )}
-
                   />
-
-
-
                   <div className="forma-checkbox-label-text">
-
                     <strong>
-
                       {field.placeholder ||
-
                         field.label}
-
                     </strong>
-
                     {isAiFilled && (
                       <span
                         className="forma-ai-field-badge forma-ai-checkbox-badge"
@@ -1686,243 +950,116 @@ useEffect(() => {
                         <span>AI Filled</span>
                       </span>
                     )}
-
                     {field.description && (
-
                       <span>
-
                         {field.description}
-
                       </span>
-
                     )}
-
                   </div>
-
                 </label>
-
               );
-
-
-
             case "number":
-
               return (
-
                 <input
-
                   id={fieldKey}
-
                   type="number"
-
                   step={
-
                     field.validation
-
                       ?.integerOnly
-
                       ? "1"
-
                       : "any"
-
                   }
-
                   placeholder={
-
                     field.placeholder ||
-
                     "Enter number..."
-
                   }
-
                   className={`forma-input ${
-
                     hasError
-
                       ? "has-error"
-
                       : ""
-
                   } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
-
                   {...register(
-
                     fieldKey,
-
                     validationRules
-
                   )}
-
                 />
-
               );
-
-
-
             case "date":
-
               return (
-
                 <input
-
                   id={fieldKey}
-
                   type="date"
-
                   className={`forma-input ${
-
                     hasError
-
                       ? "has-error"
-
                       : ""
-
                   } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
-
                   {...register(
-
                     fieldKey,
-
                     validationRules
-
                   )}
-
                 />
-
               );
-
-
-
             case "email":
-
               return (
-
                 <input
-
                   id={fieldKey}
-
                   type="email"
-
                   placeholder={
-
                     field.placeholder ||
-
                     "name@example.com"
-
                   }
-
                   className={`forma-input ${
-
                     hasError
-
                       ? "has-error"
-
                       : ""
-
                   } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
-
                   {...register(
-
                     fieldKey,
-
                     validationRules
-
                   )}
-
                 />
-
               );
-
-
-
             case "text":
-
             default:
-
               return (
-
                 <input
-
                   id={fieldKey}
-
                   type="text"
-
                   placeholder={
-
                     field.placeholder ||
-
                     `Enter ${
-
                       field.label?.toLowerCase() ||
-
                       ""
-
                     }...`
-
                   }
-
                   className={`forma-input ${
-
                     hasError
-
                       ? "has-error"
-
                       : ""
-
                   } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
-
                   {...register(
-
                     fieldKey,
-
                     validationRules
-
                   )}
-
                 />
-
               );
-
           }
-
         })()}
-
-
-
         {hasError && (
-
           <div className="forma-field-error">
-
             <AlertCircle size={14} />
-
-
-
             <span>
-
               {errors[fieldKey]?.message}
-
             </span>
-
           </div>
-
         )}
-
       </div>
-
     );
-
   };
-
-
-
   return (
-
     <div className="forma-dynamic-container">
-
       <div className="forma-dynamic-card">
-
-
-
         {/* HEADER */}
         {showHeader && (
           <header className="forma-form-header">
@@ -1937,7 +1074,6 @@ useEffect(() => {
                   {flatFields.length === 1 ? "" : "s"}
                 </span>
               </div>
-
               {enableExtraction && (
                 <button
                   type="button"
@@ -1957,11 +1093,9 @@ useEffect(() => {
                 </button>
               )}
             </div>
-
             <h1 className="forma-form-title">
               {schema.title || "Untitled Form"}
             </h1>
-
             {schema.description && (
               <p className="forma-form-desc">
                 {schema.description}
@@ -1969,10 +1103,12 @@ useEffect(() => {
             )}
           </header>
         )}
-
         {/* WEEK 3 (POINT 1): AI EXTRACTION PANEL */}
         {enableExtraction && extractionPanelOpen && (
-          <section className="forma-ai-extraction-card" aria-label="AI Extraction Panel">
+          <section
+  className="forma-ai-extraction-card"
+  aria-label="AI Extraction Panel"
+>
             <div className="forma-ai-extract-header">
               <div className="forma-ai-extract-title-group">
                 <div className="forma-ai-extract-icon-wrap">
@@ -1989,7 +1125,6 @@ useEffect(() => {
                 Step 1 of 6: Receive Response
               </span>
             </div>
-
             {/* Mode Selector Tabs */}
             <div className="forma-ai-mode-tabs">
               <button
@@ -2015,7 +1150,6 @@ useEffect(() => {
                 Paste Raw JSON Response
               </button>
             </div>
-
             {/* Mode 1: Unstructured Text */}
             {extractionMode === "text" && (
               <div className="forma-ai-input-section">
@@ -2041,7 +1175,6 @@ useEffect(() => {
                     </button>
                   </div>
                 </div>
-
                 <textarea
                   id="ai-extraction-text"
                   className="forma-ai-extract-textarea"
@@ -2052,7 +1185,6 @@ useEffect(() => {
                 />
               </div>
             )}
-
             {/* Mode 2: Raw JSON Input */}
             {extractionMode === "raw_json" && (
               <div className="forma-ai-input-section">
@@ -2068,7 +1200,6 @@ useEffect(() => {
                     Load Sample JSON
                   </button>
                 </div>
-
                 <textarea
                   id="ai-raw-json-text"
                   className="forma-ai-extract-textarea monospace"
@@ -2079,7 +1210,6 @@ useEffect(() => {
                 />
               </div>
             )}
-
             {/* Error alert */}
             {extractionError && (
               <div className="forma-ai-extract-error">
@@ -2087,7 +1217,6 @@ useEffect(() => {
                 <span>{extractionError}</span>
               </div>
             )}
-
             {/* Action buttons */}
             <div className="forma-ai-extract-actions">
               {(extractionInputText || rawJsonInput || receivedExtraction) && (
@@ -2101,7 +1230,6 @@ useEffect(() => {
                   Clear
                 </button>
               )}
-
               <button
                 type="button"
                 className="forma-ai-extract-submit-btn"
@@ -2121,7 +1249,6 @@ useEffect(() => {
                 )}
               </button>
             </div>
-
             {/* POINT 1 SUCCESS RECEIPT CARD */}
             {receivedExtraction && (
               <div className="forma-ai-received-card">
@@ -2149,7 +1276,6 @@ useEffect(() => {
                     {receivedExtraction.fieldCount} fields extracted
                   </span>
                 </div>
-
                 {/* Extracted keys list */}
                 <div className="forma-ai-keys-container">
                   <span className="forma-ai-keys-title">Extracted Keys Received:</span>
@@ -2162,7 +1288,6 @@ useEffect(() => {
                     ))}
                   </div>
                 </div>
-
                 {/* Expandable Raw Payload View */}
                 <div className="forma-ai-payload-drawer">
                   <button
@@ -2174,7 +1299,6 @@ useEffect(() => {
                     <span>{showRawJsonPayload ? "Hide" : "Inspect"} Raw Extraction JSON</span>
                     {showRawJsonPayload ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                   </button>
-
                   {showRawJsonPayload && (
                     <div className="forma-ai-json-view">
                       <div className="forma-ai-json-view-header">
@@ -2194,7 +1318,6 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
-
                 {/* Point 1 Completion note */}
                 <div className="forma-ai-point1-footer">
                   <span className="forma-ai-status-dot"></span>
@@ -2202,7 +1325,6 @@ useEffect(() => {
                     <strong>Week 3 (Point 1 Complete):</strong> Extraction response is successfully received, validated, and held in component state.
                   </span>
                 </div>
-
                 {/* =========================================================
                     WEEK 3 (POINT 2): KEY MAPPING BREAKDOWN
                     ========================================================= */}
@@ -2224,7 +1346,6 @@ useEffect(() => {
                           )}
                         </div>
                       </div>
-
                       <button
                         type="button"
                         className="forma-ai-toggle-table-btn"
@@ -2234,7 +1355,6 @@ useEffect(() => {
                         {showMappingBreakdown ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                       </button>
                     </div>
-
                     {showMappingBreakdown && (
                       <div className="forma-ai-mapping-body">
                         <div className="forma-ai-mapping-table-wrap">
@@ -2284,7 +1404,6 @@ useEffect(() => {
                           </tbody>
                         </table>
                       </div>
-
                       {/* Unmapped AI Keys if any */}
                       {mappingResult.unmappedKeys.length > 0 && (
                         <div className="forma-unmapped-keys-box">
@@ -2302,7 +1421,82 @@ useEffect(() => {
                       )}
                     </div>
                   )}
-
+                  {/* =========================================================
+    WEEK 3 (POINT 5): MISSING REQUIRED FIELD WARNING
+    ========================================================= */}
+{missingRequiredFields.length > 0 ? (
+  <div
+    style={{
+      marginTop: "14px",
+      padding: "14px 16px",
+      borderRadius: "10px",
+      border: "1px solid #fbbf24",
+      background: "#fffbeb",
+      color: "#92400e",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        fontWeight: 700,
+        fontSize: "13px",
+        marginBottom: "8px",
+      }}
+    >
+      <AlertCircle size={16} />
+      Missing required fields
+    </div>
+    <div
+      style={{
+        fontSize: "12px",
+        marginBottom: "10px",
+      }}
+    >
+      AI could not identify values for these required fields.
+      Please review and complete them manually before submitting.
+    </div>
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "6px",
+      }}
+    >
+      {missingRequiredFields.map((field) => (
+        <span
+          key={field.id}
+          style={{
+            padding: "4px 9px",
+            borderRadius: "999px",
+            background: "#fef3c7",
+            border: "1px solid #fcd34d",
+            fontSize: "11px",
+            fontWeight: 600,
+          }}
+        >
+          {field.label}
+        </span>
+      ))}
+    </div>
+  </div>
+) : (
+  <div
+    style={{
+      marginTop: "14px",
+      padding: "10px 14px",
+      borderRadius: "8px",
+      border: "1px solid #bbf7d0",
+      background: "#f0fdf4",
+      color: "#166534",
+      fontSize: "12px",
+      fontWeight: 600,
+    }}
+  >
+    ✓ All currently visible required fields were identified by AI.
+  </div>
+)}
                   {/* Point 2 Completion Footer */}
                   <div className="forma-ai-point2-footer">
                     <span className="forma-ai-status-dot"></span>
@@ -2310,7 +1504,6 @@ useEffect(() => {
                       <strong>Week 3 (Point 2 Complete):</strong> JSON keys successfully mapped to schema field names ({mappingResult.stats.totalMapped} mapped fields).
                     </span>
                   </div>
-
                   {/* =========================================================
                       WEEK 3 (POINT 3): USE REACT HOOK FORM setValue()
                       ========================================================= */}
@@ -2326,7 +1519,6 @@ useEffect(() => {
                             : "Mapped values ready to apply to form"}
                         </span>
                       </div>
-
                       <div className="forma-setvalue-controls">
                         <label className="forma-auto-apply-label" title="Automatically call setValue() when extraction completes">
                           <input
@@ -2336,7 +1528,6 @@ useEffect(() => {
                           />
                           <span>Auto-fill via setValue()</span>
                         </label>
-
                         <button
                           type="button"
                           className="forma-ai-run-setvalue-btn"
@@ -2348,7 +1539,6 @@ useEffect(() => {
                         </button>
                       </div>
                     </div>
-
                     {valuesAppliedWithSetValue && (
                       <div className="forma-setvalue-success-banner">
                         <div className="forma-setvalue-success-left">
@@ -2363,7 +1553,6 @@ useEffect(() => {
                         </span>
                       </div>
                     )}
-
                     {/* Point 3 Completion Footer */}
                     <div className="forma-ai-point3-footer">
                       <span className="forma-ai-status-dot"></span>
@@ -2372,7 +1561,6 @@ useEffect(() => {
                       </span>
                     </div>
                   </div>
-
                   {/* =========================================================
                       WEEK 3 (POINT 4): MARK AI-FILLED FIELDS
                       ========================================================= */}
@@ -2388,7 +1576,6 @@ useEffect(() => {
                             : "No AI markings applied yet"}
                         </span>
                       </div>
-
                       {Object.keys(aiFilledFields).length > 0 && (
                         <div className="forma-ai-marked-controls">
                           <button
@@ -2402,7 +1589,6 @@ useEffect(() => {
                         </div>
                       )}
                     </div>
-
                     {Object.keys(aiFilledFields).length > 0 ? (
                       <div className="forma-ai-marked-body">
                         <div className="forma-ai-marked-chips-list">
@@ -2430,7 +1616,6 @@ useEffect(() => {
                             </div>
                           ))}
                         </div>
-
                         {/* Point 4 Completion Footer */}
                         <div className="forma-ai-point4-footer">
                           <span className="forma-ai-status-dot"></span>
@@ -2451,301 +1636,130 @@ useEffect(() => {
             )}
           </section>
         )}
-
-
-
         {/* FORM */}
-
-
-
         <form
-
           onSubmit={handleSubmit(
-
             (data) => {
-
               setValidationAttempted(false);
-
               handleFormSubmit(data);
-
             },
-
             () => {
-
               setValidationAttempted(true);
-
             }
-
           )}
-
         >
-
           {validationAttempted && Object.keys(errors).length > 0 && (
-
             <div
-
               style={{
-
                 marginBottom: 20,
-
                 padding: "12px 16px",
-
                 borderRadius: 10,
-
                 background: "#fef2f2",
-
                 border: "1px solid #fecaca",
-
                 color: "#991b1b",
-
                 fontSize: 13.5,
-
                 display: "flex",
-
                 alignItems: "center",
-
                 gap: 8,
-
               }}
-
             >
-
               <AlertCircle size={16} />
-
               <span>
-
                 Please correct the {Object.keys(errors).length} highlighted validation error
-
                 {Object.keys(errors).length > 1 ? "s" : ""} below before submitting.
-
               </span>
-
             </div>
-
           )}
-
-
-
           <div className="forma-fields-list">
-
             {flatFields.map((field) =>
-
               renderField(field)
-
             )}
-
           </div>
-
-
-
           {/* ACTIONS */}
-
-
-
           <div className="forma-form-actions">
-
-
-
             <button
-
               type="button"
-
               className="forma-reset-btn"
-
               onClick={handleFormReset}
-
               disabled={isSubmitting}
-
               title="Clear all fields"
-
             >
-
               <RotateCcw
-
                 size={15}
-
                 style={{
-
                   verticalAlign:
-
                     "middle",
-
                   marginRight: 6,
-
                 }}
-
               />
-
-
-
               Reset
-
             </button>
-
-
-
             <button
-
               type="submit"
-
               className="forma-submit-btn"
-
               disabled={isSubmitting}
-
             >
-
               <Send size={15} />
-
-
-
               {isSubmitting
-
                 ? "Submitting..."
-
                 : "Submit Form"}
-
             </button>
-
-
-
           </div>
-
         </form>
-
-
-
         {/* ERROR */}
-
-
-
         {submitError && (
-
           <div
-
             style={{
-
               marginTop: 16,
-
               padding: "12px 14px",
-
               borderRadius: 10,
-
               background: "#fef2f2",
-
               border: "1px solid #fecaca",
-
               color: "#b91c1c",
-
               fontSize: 14,
-
             }}
-
           >
-
             <AlertCircle
-
               size={16}
-
               style={{
-
                 verticalAlign:
-
                   "middle",
-
                 marginRight: 6,
-
               }}
-
             />
-
-
-
             {submitError}
-
           </div>
-
         )}
-
-
-
         {/* SUCCESS */}
-
-
-
         {submittedData && (
-
           <div className="forma-submission-success">
-
-
-
             <div className="forma-success-header">
-
               <CheckCircle2 size={20} />
-
-
-
               <span>
-
                 Form Submitted
-
                 Successfully!
-
               </span>
-
             </div>
-
-
-
             <p
-
               style={{
-
                 margin: "0 0 10px",
-
                 fontSize: 13,
-
                 color: "#166534",
-
               }}
-
             >
-
               {submitNotice || "Your submission was successfully validated and recorded."}
-
             </p>
-
-
-
             <pre className="forma-submission-data-preview">
-
               {JSON.stringify(
-
                 submittedData,
-
                 null,
-
                 2
-
               )}
-
             </pre>
-
-
-
           </div>
-
         )}
-
-
-
       </div>
-
     </div>
-
   );
-
 }
-
-
-
 export default DynamicForm;

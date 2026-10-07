@@ -500,36 +500,114 @@ export async function extractFormValuesFromText({
     const extracted =
       cleanJsonResponse(rawContent);
 
-    const allowedIds = new Set(
-      safeFields.map((field) => field.id)
+    const fieldMap = new Map(
+  safeFields.map((field) => [
+    field.id,
+    field,
+  ])
+);
+
+const extractedData = {};
+const validationErrors = [];
+
+for (const [key, value] of Object.entries(extracted)) {
+  const field = fieldMap.get(key);
+
+  // Unknown field names are rejected.
+  if (!field) {
+    validationErrors.push(
+      `"${key}" is not a valid field in this form`
     );
+    continue;
+  }
 
-    const extractedData = {};
+  // Ignore null/undefined values.
+  if (value === null || value === undefined) {
+    continue;
+  }
 
-    for (const [key, value] of Object.entries(
-      extracted
-    )) {
-      if (allowedIds.has(key)) {
-        extractedData[key] = value;
+  switch (field.type) {
+    case "number":
+      if (
+        typeof value !== "number" ||
+        Number.isNaN(value)
+      ) {
+        validationErrors.push(
+          `"${key}" must be a number`
+        );
+        continue;
       }
-    }
+      break;
 
-    const confidenceScores = {};
+    case "checkbox":
+      if (typeof value !== "boolean") {
+        validationErrors.push(
+          `"${key}" must be true or false`
+        );
+        continue;
+      }
+      break;
 
-    for (const key of Object.keys(
-      extractedData
-    )) {
-      confidenceScores[key] = 1;
-    }
+    case "email":
+      if (
+        typeof value !== "string" ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+      ) {
+        validationErrors.push(
+          `"${key}" must be a valid email address`
+        );
+        continue;
+      }
+      break;
 
-    return {
-      extractedData,
-      confidenceScores,
-      extractedAt:
-        new Date().toISOString(),
-      source: "local_qwen_llm",
-      formId,
-    };
+    case "date":
+      if (
+        typeof value !== "string" ||
+        Number.isNaN(Date.parse(value))
+      ) {
+        validationErrors.push(
+          `"${key}" must be a valid date`
+        );
+        continue;
+      }
+      break;
+
+    default:
+      if (typeof value !== "string") {
+        validationErrors.push(
+          `"${key}" must be a text value`
+        );
+        continue;
+      }
+  }
+
+  extractedData[key] = value;
+}
+
+if (validationErrors.length > 0) {
+  throw new Error(
+    `AI extraction validation failed: ${validationErrors.join(
+      "; "
+    )}`
+  );
+}
+
+const confidenceScores = {};
+
+for (const key of Object.keys(
+  extractedData
+)) {
+  confidenceScores[key] = 1;
+}
+
+return {
+  extractedData,
+  confidenceScores,
+  extractedAt:
+    new Date().toISOString(),
+  source: "local_qwen_llm",
+  formId,
+};
   } catch (error) {
     console.error(
       "Forma AI extraction failed:",
