@@ -1943,10 +1943,10 @@ useEffect(() => {
                   type="button"
                   className={`forma-ai-extract-toggle-btn ${extractionPanelOpen ? "active" : ""}`}
                   onClick={() => setExtractionPanelOpen((prev) => !prev)}
-                  title="Toggle AI Extraction Panel (Week 3 Point 1)"
+                  title="Toggle AI Extraction Panel"
                 >
                   <Sparkles size={14} className="sparkle-icon" />
-                  <span>AI Autofill (Week 3)</span>
+                  <span>AI Autofill</span>
                   {receivedExtraction && (
                     <span className="forma-extract-received-tag">
                       <Check size={11} />
@@ -1981,7 +1981,7 @@ useEffect(() => {
                 <div>
                   <h3 className="forma-ai-extract-title">AI Data Extraction</h3>
                   <p className="forma-ai-extract-subtitle">
-                    Week 3 — Point 1: Receive extraction response from AI
+                    Extract and populate form fields from unstructured text or incident notes using AI
                   </p>
                 </div>
               </div>
