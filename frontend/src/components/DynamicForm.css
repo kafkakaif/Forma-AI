@@ -1367,5 +1367,270 @@
   font-size: 11px;
 }
 
+/* =========================================================
+   WEEK 3 (POINT 4): MARK AI-FILLED FIELDS STYLES
+   ========================================================= */
+
+/* Form Group AI Highlight */
+.forma-group-ai-filled {
+  position: relative;
+  background: rgba(245, 243, 255, 0.45);
+  border-left: 3px solid #8b5cf6;
+  padding-left: 10px;
+  border-radius: 6px;
+  transition: all 0.25s ease;
+}
+
+/* Label Badge */
+.forma-ai-field-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #6d28d9;
+  background: #ede9fe;
+  border: 1px solid #c4b5fd;
+  padding: 1.5px 7px;
+  border-radius: 12px;
+  letter-spacing: 0.2px;
+  animation: fadeIn 0.2s ease-out;
+  vertical-align: middle;
+  margin-left: 6px;
+  line-height: 1.2;
+}
+
+.forma-ai-field-badge svg {
+  color: #7c3aed;
+}
+
+.forma-ai-checkbox-badge {
+  margin-left: 8px;
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+/* Input Fields AI Highlight */
+.forma-input.forma-input-ai-filled,
+.forma-textarea.forma-input-ai-filled,
+.forma-select.forma-input-ai-filled {
+  border-color: #a78bfa !important;
+  background-color: #faf5ff !important;
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.15);
+}
+
+.forma-input.forma-input-ai-filled:focus,
+.forma-textarea.forma-input-ai-filled:focus,
+.forma-select.forma-input-ai-filled:focus {
+  border-color: #7c3aed !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2) !important;
+}
+
+/* Radio Card AI Selected */
+.forma-radio-card.forma-radio-ai-selected {
+  border-color: #8b5cf6 !important;
+  background: #f5f3ff !important;
+  box-shadow: 0 0 0 1px #8b5cf6;
+}
+
+/* Checkbox Card AI Filled */
+.forma-checkbox-card.forma-checkbox-ai-filled {
+  border-color: #8b5cf6 !important;
+  background: #f5f3ff !important;
+}
+
+/* Point 4 Panel Section */
+.forma-ai-marked-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.forma-ai-marked-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.forma-ai-marked-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.forma-ai-step4-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #6d28d9;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.forma-ai-marked-status-text {
+  font-size: 12px;
+  color: #6d28d9;
+  font-weight: 600;
+}
+
+.forma-ai-clear-marks-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.forma-ai-clear-marks-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #94a3b8;
+}
+
+.forma-ai-marked-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.forma-ai-marked-chips-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.forma-ai-marked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: #581c87;
+  transition: all 0.15s ease;
+}
+
+.forma-ai-marked-chip:hover {
+  border-color: #c084fc;
+  background: #f3e8ff;
+}
+
+.forma-chip-sparkle {
+  color: #9333ea;
+}
+
+.forma-chip-field-id {
+  font-weight: 700;
+  color: #3b0764;
+}
+
+.forma-chip-arrow {
+  color: #a855f7;
+  font-size: 10px;
+}
+
+.forma-chip-json-key {
+  background: #ede9fe;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #6d28d9;
+}
+
+.forma-chip-match-tag {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.forma-chip-match-tag.exact {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.forma-chip-match-tag.normalized {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.forma-chip-match-tag.alias {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.forma-chip-match-tag.fuzzy {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.forma-chip-remove-btn {
+  margin-left: 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  color: #a855f7;
+  padding: 0 2px;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.forma-chip-remove-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.forma-ai-point4-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #faf5ff;
+  border: 1px dashed #c084fc;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: #6b21a8;
+}
+
+.forma-ai-point4-footer code {
+  background: #ede9fe;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #581c87;
+}
+
+.forma-ai-marked-empty-hint {
+  font-size: 11.5px;
+  color: #64748b;
+  font-style: italic;
+  padding: 4px 0;
+}
+
 
 

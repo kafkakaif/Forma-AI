@@ -716,4 +716,69 @@ export function applyMappedValuesWithHookForm(
   return count;
 }
 
+// =========================================================
+// WEEK 3 (POINT 4): MARK AI-FILLED FIELDS
+// =========================================================
+
+/**
+ * Constructs a record of all fields populated by AI extraction,
+ * including original JSON keys, values, match types, and timestamps.
+ *
+ * @param {Object} mappedValues - Object of { [fieldId]: value }
+ * @param {Array} mappingDetails - Array of mapping detail records from Point 2
+ * @returns {Object} Map of { [fieldId]: { isAiFilled, jsonKey, mappedValue, matchType, confidence, filledAt } }
+ */
+export function markAiFilledFields(mappedValues, mappingDetails = []) {
+  if (!mappedValues || typeof mappedValues !== "object") return {};
+
+  const detailsMap = (mappingDetails || []).reduce((acc, d) => {
+    if (d?.fieldId) acc[d.fieldId] = d;
+    return acc;
+  }, {});
+
+  const marked = {};
+  for (const [fieldId, val] of Object.entries(mappedValues)) {
+    if (val !== undefined && val !== null && val !== "") {
+      const detail = detailsMap[fieldId];
+      marked[fieldId] = {
+        isAiFilled: true,
+        fieldId,
+        jsonKey: detail?.jsonKey || fieldId,
+        mappedValue: val,
+        matchType: detail?.matchType || "exact",
+        confidence: detail?.confidence || 1.0,
+        filledAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  return marked;
+}
+
+/**
+ * Checks whether a specific field ID is marked as AI-filled.
+ *
+ * @param {Object} markedFields - Map of marked fields
+ * @param {string} fieldId - Form field ID to check
+ * @returns {boolean}
+ */
+export function isFieldAiFilled(markedFields, fieldId) {
+  return Boolean(markedFields && fieldId && markedFields[fieldId]?.isAiFilled);
+}
+
+/**
+ * Returns a shallow copy of marked fields with the given field removed.
+ *
+ * @param {Object} markedFields - Map of marked fields
+ * @param {string} fieldId - Form field ID to unmark
+ * @returns {Object}
+ */
+export function unmarkAiFilledField(markedFields, fieldId) {
+  if (!markedFields || !fieldId || !markedFields[fieldId]) return markedFields || {};
+  const next = { ...markedFields };
+  delete next[fieldId];
+  return next;
+}
+
+
 

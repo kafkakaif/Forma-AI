@@ -35,6 +35,8 @@ import {
   receiveExtractionResponse,
   mapExtractedKeysToSchema,
   applyMappedValuesWithHookForm,
+  markAiFilledFields,
+  unmarkAiFilledField,
   SAMPLE_EXTRACTION_PROMPTS,
   SAMPLE_RAW_RESPONSES,
 } from "../services/aiExtractionService";
@@ -48,6 +50,7 @@ function DynamicForm({
   onReceiveExtractionResponse = null,
   onMappingComplete = null,
   onValuesApplied = null,
+  onAiFieldsMarked = null,
   enableExtraction = true,
 }) {
   const {
@@ -64,8 +67,61 @@ function DynamicForm({
 
   const formValues = watch();
 
-  const [submittedData, setSubmittedData] =
+  const draftKey = useMemo(() => {
+    if (!schema) return null;
+    return `forma_draft_${
+      schema.slug ||
+      schema.formId ||
+      schema.id ||
+      schema.title ||
+      "form"
+    }`;
+  }, [schema]);
 
+  /**
+   * Normalize fields:
+   * Supports both:
+   * 1. schema.fields
+   * 2. schema.sections[].fields
+   */
+  const flatFields = useMemo(() => {
+    if (!schema) return [];
+
+    // Flat schema
+    if (
+      Array.isArray(schema.fields) &&
+      schema.fields.length > 0
+    ) {
+      return schema.fields;
+    }
+
+    // Section-based schema
+    if (
+      Array.isArray(schema.sections) &&
+      schema.sections.length > 0
+    ) {
+      const out = [];
+      schema.sections.forEach((section) => {
+        (section.fields || []).forEach(
+          (field) => {
+            out.push({
+              ...field,
+              id: field.id || field.name,
+              showIf:
+                field.showIf ||
+                section.showIf ||
+                null,
+            });
+          }
+        );
+      });
+      return out;
+    }
+
+    return [];
+  }, [schema]);
+
+  const [submittedData, setSubmittedData] =
     useState(null);
 
 
@@ -116,6 +172,9 @@ function DynamicForm({
   const [appliedFieldsCount, setAppliedFieldsCount] = useState(0);
   const [autoApplySetValue, setAutoApplySetValue] = useState(true);
 
+  // Point 4: Mark AI-filled fields state
+  const [aiFilledFields, setAiFilledFields] = useState({});
+
   const handleApplyWithSetValue = useCallback((customMapped = null) => {
     const toApply = customMapped || mappingResult?.mappedValues;
     if (!toApply || typeof toApply !== "object") return;
@@ -132,7 +191,14 @@ function DynamicForm({
     if (onValuesApplied) {
       onValuesApplied(toApply, count);
     }
-  }, [mappingResult, setValue, onValuesApplied]);
+
+    // Week 3 Point 4: Mark AI-filled fields
+    const marked = markAiFilledFields(toApply, mappingResult?.mappingDetails || []);
+    setAiFilledFields(marked);
+    if (onAiFieldsMarked) {
+      onAiFieldsMarked(marked);
+    }
+  }, [mappingResult, setValue, onValuesApplied, onAiFieldsMarked]);
 
   // Automatically map JSON keys to schema fields and auto-apply with setValue()
   useEffect(() => {
@@ -152,6 +218,7 @@ function DynamicForm({
       setMappingResult(null);
       setValuesAppliedWithSetValue(false);
       setAppliedFieldsCount(0);
+      setAiFilledFields({});
     }
   }, [receivedExtraction, flatFields, onMappingComplete, autoApplySetValue, handleApplyWithSetValue]);
 
@@ -232,6 +299,7 @@ function DynamicForm({
     setMappingResult(null);
     setValuesAppliedWithSetValue(false);
     setAppliedFieldsCount(0);
+    setAiFilledFields({});
     setExtractionError("");
     setExtractionInputText("");
     setRawJsonInput("");
@@ -241,117 +309,7 @@ function DynamicForm({
 
 
 
-const draftKey = useMemo(() => {
 
-  if (!schema) return null;
-
-
-
-  return `forma_draft_${
-
-    schema.slug ||
-
-    schema.formId ||
-
-    schema.id ||
-
-    schema.title ||
-
-    "form"
-
-  }`;
-
-}, [schema]);
-
-
-
-  /**
-
-   * Normalize fields:
-
-   * Supports both:
-
-   * 1. schema.fields
-
-   * 2. schema.sections[].fields
-
-   */
-
-  const flatFields = useMemo(() => {
-
-    if (!schema) return [];
-
-
-
-    // Flat schema
-
-    if (
-
-      Array.isArray(schema.fields) &&
-
-      schema.fields.length > 0
-
-    ) {
-
-      return schema.fields;
-
-    }
-
-
-
-    // Section-based schema
-
-    if (
-
-      Array.isArray(schema.sections) &&
-
-      schema.sections.length > 0
-
-    ) {
-
-      const out = [];
-
-
-
-      schema.sections.forEach((section) => {
-
-        (section.fields || []).forEach(
-
-          (field) => {
-
-            out.push({
-
-              ...field,
-
-              id: field.id || field.name,
-
-              showIf:
-
-                field.showIf ||
-
-                section.showIf ||
-
-                null,
-
-            });
-
-          }
-
-        );
-
-      });
-
-
-
-      return out;
-
-    }
-
-
-
-    return [];
-
-  }, [schema]);
 
   /**
 
@@ -834,6 +792,8 @@ useEffect(() => {
 
     setValidationAttempted(false);
 
+    setAiFilledFields({});
+
   };
 
 
@@ -959,6 +919,9 @@ useEffect(() => {
 
 
     if (!isVisible) return null;
+
+    const isAiFilled = Boolean(aiFilledFields[fieldKey]);
+    const aiFieldData = aiFilledFields[fieldKey] || null;
 
 
 
@@ -1352,7 +1315,7 @@ useEffect(() => {
 
       <div
 
-        className="forma-form-group"
+        className={`forma-form-group ${isAiFilled ? "forma-group-ai-filled" : ""}`}
 
         key={fieldKey}
 
@@ -1392,6 +1355,16 @@ useEffect(() => {
 
               </span>
 
+            )}
+
+            {isAiFilled && (
+              <span
+                className="forma-ai-field-badge"
+                title={`AI-filled from JSON key "${aiFieldData?.jsonKey || fieldKey}" (${aiFieldData?.matchType || "exact"} match)`}
+              >
+                <Sparkles size={11} />
+                <span>AI Filled</span>
+              </span>
             )}
 
           </span>
@@ -1458,7 +1431,7 @@ useEffect(() => {
 
                       : ""
 
-                  }`}
+                  } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
 
                   {...register(
 
@@ -1490,7 +1463,7 @@ useEffect(() => {
 
                       : ""
 
-                  }`}
+                  } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
 
                   {...register(
 
@@ -1598,7 +1571,7 @@ useEffect(() => {
 
                               : ""
 
-                          }`}
+                          } ${isSelected && isAiFilled ? "forma-radio-ai-selected" : ""}`}
 
                         >
 
@@ -1658,7 +1631,7 @@ useEffect(() => {
 
                       : ""
 
-                  }`}
+                  } ${formValues[fieldKey] && isAiFilled ? "forma-checkbox-ai-filled" : ""}`}
 
                 >
 
@@ -1704,7 +1677,15 @@ useEffect(() => {
 
                     </strong>
 
-
+                    {isAiFilled && (
+                      <span
+                        className="forma-ai-field-badge forma-ai-checkbox-badge"
+                        title={`AI-filled from JSON key "${aiFieldData?.jsonKey || fieldKey}"`}
+                      >
+                        <Sparkles size={10} />
+                        <span>AI Filled</span>
+                      </span>
+                    )}
 
                     {field.description && (
 
@@ -1762,7 +1743,7 @@ useEffect(() => {
 
                       : ""
 
-                  }`}
+                  } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
 
                   {...register(
 
@@ -1796,7 +1777,7 @@ useEffect(() => {
 
                       : ""
 
-                  }`}
+                  } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
 
                   {...register(
 
@@ -1826,7 +1807,7 @@ useEffect(() => {
 
                     field.placeholder ||
 
-                    "name\@example.com"
+                    "name@example.com"
 
                   }
 
@@ -1838,7 +1819,7 @@ useEffect(() => {
 
                       : ""
 
-                  }`}
+                  } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
 
                   {...register(
 
@@ -1888,7 +1869,7 @@ useEffect(() => {
 
                       : ""
 
-                  }`}
+                  } ${isAiFilled ? "forma-input-ai-filled" : ""}`}
 
                   {...register(
 
@@ -2387,9 +2368,82 @@ useEffect(() => {
                     <div className="forma-ai-point3-footer">
                       <span className="forma-ai-status-dot"></span>
                       <span>
-                        <strong>Week 3 (Point 3 Complete):</strong> React Hook Form <code>setValue()</code> successfully called for all mapped fields ({appliedFieldsCount} inputs populated). Ready for <strong>Point 4: Mark AI-filled fields</strong>.
+                        <strong>Week 3 (Point 3 Complete):</strong> React Hook Form <code>setValue()</code> successfully called for all mapped fields ({appliedFieldsCount} inputs populated).
                       </span>
                     </div>
+                  </div>
+
+                  {/* =========================================================
+                      WEEK 3 (POINT 4): MARK AI-FILLED FIELDS
+                      ========================================================= */}
+                  <div className="forma-ai-marked-section">
+                    <div className="forma-ai-marked-header">
+                      <div className="forma-ai-marked-title-row">
+                        <span className="forma-ai-step4-badge">
+                          Point 4: Mark AI-Filled Fields
+                        </span>
+                        <span className="forma-ai-marked-status-text">
+                          {Object.keys(aiFilledFields).length > 0
+                            ? `✨ ${Object.keys(aiFilledFields).length} form fields marked with AI badge & highlight`
+                            : "No AI markings applied yet"}
+                        </span>
+                      </div>
+
+                      {Object.keys(aiFilledFields).length > 0 && (
+                        <div className="forma-ai-marked-controls">
+                          <button
+                            type="button"
+                            className="forma-ai-clear-marks-btn"
+                            onClick={() => setAiFilledFields({})}
+                            title="Remove AI badges and highlights from all fields"
+                          >
+                            Clear Badges
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {Object.keys(aiFilledFields).length > 0 ? (
+                      <div className="forma-ai-marked-body">
+                        <div className="forma-ai-marked-chips-list">
+                          {Object.values(aiFilledFields).map((item) => (
+                            <div
+                              key={item.fieldId}
+                              className="forma-ai-marked-chip"
+                              title={`JSON Key: "${item.jsonKey}" | Match: ${item.matchType} | Filled value: ${String(item.mappedValue)}`}
+                            >
+                              <Sparkles size={11} className="forma-chip-sparkle" />
+                              <strong className="forma-chip-field-id">{item.fieldId}</strong>
+                              <span className="forma-chip-arrow">←</span>
+                              <code className="forma-chip-json-key">{item.jsonKey}</code>
+                              <span className={`forma-chip-match-tag ${item.matchType}`}>
+                                {item.matchType}
+                              </span>
+                              <button
+                                type="button"
+                                className="forma-chip-remove-btn"
+                                onClick={() => setAiFilledFields((prev) => unmarkAiFilledField(prev, item.fieldId))}
+                                title={`Unmark ${item.fieldId}`}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Point 4 Completion Footer */}
+                        <div className="forma-ai-point4-footer">
+                          <span className="forma-ai-status-dot"></span>
+                          <span>
+                            <strong>Week 3 (Point 4 Complete):</strong> AI-filled fields visually marked across the form with distinct badges (<Sparkles size={11} style={{ verticalAlign: "middle" }} /> <code>AI Filled</code>) and ambient highlight borders ({Object.keys(aiFilledFields).length} fields marked). Ready for <strong>Point 5: Show missing-field warnings</strong>.
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="forma-ai-marked-empty-hint">
+                        <span>Click "Apply to Form (setValue)" above to populate and mark fields.</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
