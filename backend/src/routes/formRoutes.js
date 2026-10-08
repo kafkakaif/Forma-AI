@@ -20,6 +20,21 @@ async function findForm(idOrSlug) {
   }).lean();
 }
 
+// Find a Mongoose document so it can be updated
+async function findFormDocument(idOrSlug) {
+  if (/^[a-f\d]{24}$/i.test(idOrSlug)) {
+    const byId = await FormSchema.findById(idOrSlug);
+
+    if (byId) {
+      return byId;
+    }
+  }
+
+  return FormSchema.findOne({
+    slug: idOrSlug.toLowerCase(),
+  });
+}
+
 // -----------------------------------------
 // GET ALL FORMS
 // -----------------------------------------
@@ -64,7 +79,7 @@ router.post("/save", async (req, res, next) => {
       });
     }
 
-    // Update existing form or create a new one.
+    // Update existing form or create a new one
     let form = await FormSchema.findOne({
       slug: payload.slug,
     });
@@ -75,7 +90,7 @@ router.post("/save", async (req, res, next) => {
       form = new FormSchema(payload);
     }
 
-    // Runs the existing form-definition validation.
+    // Existing form-definition validation
     await form.validate();
     await form.save();
 
@@ -119,6 +134,56 @@ router.post("/", async (req, res, next) => {
     const form = await FormSchema.create(req.body);
 
     res.status(201).json(form);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------
+// UPDATE FORM
+// PUT /api/forms/:id
+// -----------------------------------------
+
+router.put("/:id", async (req, res, next) => {
+  try {
+    const payload = req.body;
+
+    // Validate request body
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      Array.isArray(payload)
+    ) {
+      return res.status(400).json({
+        error: "Form payload must be an object",
+      });
+    }
+
+    // Find existing form document
+    const form = await findFormDocument(req.params.id);
+
+    if (!form) {
+      return res.status(404).json({
+        error: "Form not found",
+      });
+    }
+
+    // Prevent direct modification of MongoDB document identity
+    const { _id, createdAt, updatedAt, ...updateData } = payload;
+
+    // Apply updated fields
+    form.set(updateData);
+
+    // Run existing schema validation
+    await form.validate();
+
+    // Save updated document
+    await form.save();
+
+    return res.status(200).json({
+      message: "Form updated successfully",
+      form,
+    });
   } catch (err) {
     next(err);
   }

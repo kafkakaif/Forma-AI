@@ -265,7 +265,11 @@ export async function requestExtraction({ text, schema = null, formId = null, si
       },
       body: JSON.stringify({
         text: text.trim(),
-        formId: formId || schema?.formId || schema?.id,
+        formId:
+  formId ||
+  schema?.formId ||
+  schema?.id ||
+  schema?.slug,
         fields: schema?.fields?.map((f) => ({ id: f.id || f.name, label: f.label, type: f.type })) || [],
       }),
       signal,

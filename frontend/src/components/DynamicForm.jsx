@@ -135,26 +135,93 @@ function DynamicForm({
   const [autoApplySetValue, setAutoApplySetValue] = useState(true);
   // Point 4: Mark AI-filled fields state
   const [aiFilledFields, setAiFilledFields] = useState({});
-  const handleApplyWithSetValue = useCallback((customMapped = null) => {
-    const toApply = customMapped || mappingResult?.mappedValues;
-    if (!toApply || typeof toApply !== "object") return;
-    const count = applyMappedValuesWithHookForm(setValue, toApply, {
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true,
-    });
+  const handleApplyWithSetValue = useCallback(
+  (customMapped = null) => {
+    const toApply =
+      customMapped || mappingResult?.mappedValues;
+
+    if (
+      !toApply ||
+      typeof toApply !== "object"
+    ) {
+      return;
+    }
+
+    let count = 0;
+
+    for (const [fieldId, value] of Object.entries(
+      toApply
+    )) {
+      if (
+        value !== undefined &&
+        value !== null
+      ) {
+        setValue(
+          fieldId,
+          value,
+          {
+            shouldValidate: true,
+            shouldDirty: true,
+            shouldTouch: true,
+          }
+        );
+
+        count++;
+      }
+    }
+
+    // Force React Hook Form to expose the latest values
+    // to the rendered inputs.
+    setTimeout(() => {
+      for (const [fieldId, value] of Object.entries(
+        toApply
+      )) {
+        if (
+          value !== undefined &&
+          value !== null
+        ) {
+          setValue(
+            fieldId,
+            value,
+            {
+              shouldValidate: true,
+              shouldDirty: true,
+              shouldTouch: true,
+            }
+          );
+        }
+      }
+    }, 0);
+
     setValuesAppliedWithSetValue(true);
     setAppliedFieldsCount(count);
+
     if (onValuesApplied) {
-      onValuesApplied(toApply, count);
+      onValuesApplied(
+        toApply,
+        count
+      );
     }
-    // Week 3 Point 4: Mark AI-filled fields
-    const marked = markAiFilledFields(toApply, mappingResult?.mappingDetails || []);
+
+    const marked = markAiFilledFields(
+      toApply,
+      mappingResult?.mappingDetails || []
+    );
+
     setAiFilledFields(marked);
+
     if (onAiFieldsMarked) {
       onAiFieldsMarked(marked);
     }
-  }, [mappingResult, setValue, onValuesApplied, onAiFieldsMarked]);
+  },
+  [
+    mappingResult,
+    setValue,
+    onValuesApplied,
+    onAiFieldsMarked,
+  ]
+);
+
   // Automatically map JSON keys to schema fields and auto-apply with setValue()
   useEffect(() => {
     if (receivedExtraction?.data && flatFields.length > 0) {

@@ -157,30 +157,119 @@ const isBlank = (v) => v === undefined || v === null || v === '' || (typeof v ==
 
 // Validate one field's value. Returns an error string or null.
 export function validateField(field, value) {
+  // Checkbox validation
   if (field.type === 'checkbox') {
-    if (value !== undefined && typeof value !== 'boolean') return `${field.label} must be true or false`;
-    if (field.required && value !== true) return `${field.label} must be checked`;
+    if (
+      value !== undefined &&
+      typeof value !== 'boolean'
+    ) {
+      return `${field.label} must be true or false`;
+    }
+
+    if (field.required && value !== true) {
+      return `${field.label} must be checked`;
+    }
+
     return null;
   }
 
-  if (isBlank(value)) return field.required ? `${field.label} is required` : null;
+  // Empty value validation
+  if (isBlank(value)) {
+    return field.required
+      ? `${field.label} is required`
+      : null;
+  }
 
-  if (typeof value !== 'string') return `${field.label} must be text`;
+  // Number validation
+  if (field.type === 'number') {
+    const numericValue =
+      typeof value === 'number'
+        ? value
+        : Number(value);
 
-  if (field.type === 'select' && !field.options.includes(value)) {
+    if (
+      typeof numericValue !== 'number' ||
+      Number.isNaN(numericValue)
+    ) {
+      return `${field.label} must be a number`;
+    }
+
+    const rules = field.validation || {};
+
+    if (
+      rules.min != null &&
+      numericValue < Number(rules.min)
+    ) {
+      return `${field.label} must be at least ${rules.min}`;
+    }
+
+    if (
+      rules.max != null &&
+      numericValue > Number(rules.max)
+    ) {
+      return `${field.label} cannot exceed ${rules.max}`;
+    }
+
+    if (
+      rules.integerOnly &&
+      !Number.isInteger(numericValue)
+    ) {
+      return `${field.label} must be a whole number`;
+    }
+
+    return null;
+  }
+
+  // All text-like fields
+  if (typeof value !== 'string') {
+    return `${field.label} must be text`;
+  }
+
+  // Select option validation
+  if (
+    field.type === 'select' &&
+    Array.isArray(field.options) &&
+    !field.options.includes(value)
+  ) {
     return `${field.label} must be one of: ${field.options.join(', ')}`;
   }
 
+  // Email validation
+  if (field.type === 'email') {
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    ) {
+      return `${field.label} must be a valid email address`;
+    }
+  }
+
+  // Validation rules
   const rules = field.validation || {};
-  if (rules.minLength != null && value.length < rules.minLength) {
+
+  if (
+    rules.minLength != null &&
+    value.length < rules.minLength
+  ) {
     return `${field.label} must be at least ${rules.minLength} characters`;
   }
-  if (rules.maxLength != null && value.length > rules.maxLength) {
+
+  if (
+    rules.maxLength != null &&
+    value.length > rules.maxLength
+  ) {
     return `${field.label} must be at most ${rules.maxLength} characters`;
   }
-  if (rules.pattern && !new RegExp(rules.pattern).test(value)) {
-    return rules.message || `${field.label} has an invalid format`;
+
+  if (
+    rules.pattern &&
+    !new RegExp(rules.pattern).test(value)
+  ) {
+    return (
+      rules.message ||
+      `${field.label} has an invalid format`
+    );
   }
+
   return null;
 }
 

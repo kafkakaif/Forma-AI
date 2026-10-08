@@ -477,10 +477,15 @@ export async function extractFormValuesFromText({
 
   try {
     const safeFields = fields.map((field) => ({
-      id: field.id,
-      label: field.label,
-      type: field.type,
-    }));
+  id: field.id,
+  label: field.label,
+  type: field.type,
+  required: Boolean(field.required),
+  options: Array.isArray(field.options)
+    ? field.options
+    : [],
+  validation: field.validation || {},
+}));
 
     const response = await llm.invoke(
       buildExtractionPrompt(
@@ -527,59 +532,89 @@ for (const [key, value] of Object.entries(extracted)) {
   }
 
   switch (field.type) {
-    case "number":
-      if (
-        typeof value !== "number" ||
-        Number.isNaN(value)
-      ) {
-        validationErrors.push(
-          `"${key}" must be a number`
-        );
-        continue;
-      }
-      break;
+  case "number":
+    if (
+      typeof value !== "number" ||
+      Number.isNaN(value)
+    ) {
+      validationErrors.push(
+        `"${key}" must be a number`
+      );
+      continue;
+    }
+    break;
 
-    case "checkbox":
-      if (typeof value !== "boolean") {
-        validationErrors.push(
-          `"${key}" must be true or false`
-        );
-        continue;
-      }
-      break;
+  case "checkbox":
+    if (typeof value !== "boolean") {
+      validationErrors.push(
+        `"${key}" must be true or false`
+      );
+      continue;
+    }
+    break;
 
-    case "email":
-      if (
-        typeof value !== "string" ||
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-      ) {
-        validationErrors.push(
-          `"${key}" must be a valid email address`
-        );
-        continue;
-      }
-      break;
+  case "email":
+    if (
+      typeof value !== "string" ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    ) {
+      validationErrors.push(
+        `"${key}" must be a valid email address`
+      );
+      continue;
+    }
+    break;
 
-    case "date":
-      if (
-        typeof value !== "string" ||
-        Number.isNaN(Date.parse(value))
-      ) {
-        validationErrors.push(
-          `"${key}" must be a valid date`
-        );
-        continue;
-      }
-      break;
+  case "date":
+    if (
+      typeof value !== "string" ||
+      Number.isNaN(Date.parse(value))
+    ) {
+      validationErrors.push(
+        `"${key}" must be a valid date`
+      );
+      continue;
+    }
+    break;
 
-    default:
-      if (typeof value !== "string") {
-        validationErrors.push(
-          `"${key}" must be a text value`
-        );
-        continue;
-      }
+  case "select":
+  case "radio": {
+    if (typeof value !== "string") {
+      validationErrors.push(
+        `"${key}" must be a text value`
+      );
+      continue;
+    }
+
+    const options = Array.isArray(field.options)
+      ? field.options.map((option) =>
+          typeof option === "string"
+            ? option
+            : option?.value ?? option?.label ?? ""
+        )
+      : [];
+
+    if (
+      options.length > 0 &&
+      !options.includes(value)
+    ) {
+      validationErrors.push(
+        `"${key}" must match one of the allowed options`
+      );
+      continue;
+    }
+
+    break;
   }
+
+  default:
+    if (typeof value !== "string") {
+      validationErrors.push(
+        `"${key}" must be a text value`
+      );
+      continue;
+    }
+}
 
   extractedData[key] = value;
 }
