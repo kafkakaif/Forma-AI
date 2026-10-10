@@ -21,9 +21,18 @@ const submissionSchema = new mongoose.Schema(
       required: true,
     },
 
-    // User's submitted answers
+    // User's saved or submitted answers
     values: {
       type: mongoose.Schema.Types.Mixed,
+      required: true,
+      default: {},
+    },
+
+    // Track whether the submission is a draft or completed
+    status: {
+      type: String,
+      enum: ["draft", "submitted"],
+      default: "submitted",
       required: true,
     },
   },
