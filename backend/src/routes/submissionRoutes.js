@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { Submission } from "../models/Submission.js";
+import { FormSchema } from "../models/FormSchema.js";
+import { validateSubmission } from "../shared/rules.js";
 import mongoose from "mongoose";
 const router = Router();
 // SAVE SUBMISSION DRAFT
@@ -70,6 +72,120 @@ router.get("/", async (_req, res, next) => {
 // -----------------------------------------
 // GET ONE SUBMISSION
 // -----------------------------------------
+
+// UPDATE EXISTING SUBMISSION DRAFT
+// PUT /api/submissions/:id/draft
+router.put("/:id/draft", async (req, res, next) => {
+  // FINALIZE AN EXISTING DRAFT
+// POST /api/submissions/:id/submit
+router.post("/:id/submit", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        error: "Invalid submission ID",
+      });
+    }
+
+    const draft = await Submission.findOne({
+      _id: id,
+      status: "draft",
+    });
+
+    if (!draft) {
+      return res.status(404).json({
+        error: "Draft not found",
+      });
+    }
+
+    const form = await FormSchema.findById(draft.form).lean();
+
+    if (!form) {
+      return res.status(404).json({
+        error: "Form not found",
+      });
+    }
+
+    const values =
+      req.body?.values !== undefined
+        ? req.body.values
+        : draft.values;
+
+    if (
+      !values ||
+      typeof values !== "object" ||
+      Array.isArray(values)
+    ) {
+      return res.status(400).json({
+        error: "values must be an object",
+      });
+    }
+
+    const result = validateSubmission(form, values);
+
+    if (!result.valid) {
+      return res.status(400).json({
+        error: "Validation failed",
+        errors: result.errors,
+      });
+    }
+
+    draft.values = result.values;
+    draft.status = "submitted";
+
+    await draft.save();
+
+    return res.status(200).json({
+      message: "Form submitted successfully",
+      submission: draft,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+  try {
+    const { id } = req.params;
+    const { values } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        error: "Invalid submission ID",
+      });
+    }
+
+    if (
+      !values ||
+      typeof values !== "object" ||
+      Array.isArray(values)
+    ) {
+      return res.status(400).json({
+        error: "values must be an object",
+      });
+    }
+
+    const draft = await Submission.findOne({
+      _id: id,
+      status: "draft",
+    });
+
+    if (!draft) {
+      return res.status(404).json({
+        error: "Draft not found",
+      });
+    }
+
+    draft.values = values;
+    await draft.save();
+
+    return res.status(200).json({
+      message: "Draft updated successfully",
+      submission: draft,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get("/:id", async (req, res, next) => {
   try {
