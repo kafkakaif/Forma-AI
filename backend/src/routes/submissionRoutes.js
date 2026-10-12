@@ -1,16 +1,18 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { Submission } from "../models/Submission.js";
 import { FormSchema } from "../models/FormSchema.js";
 import { validateSubmission } from "../shared/rules.js";
-import mongoose from "mongoose";
+
 const router = Router();
-// SAVE SUBMISSION DRAFT
+
+// SAVE NEW DRAFT
 // POST /api/submissions/draft
 router.post("/draft", async (req, res, next) => {
   try {
     const { formId, values } = req.body;
 
-    if (!formId || !mongoose.isValidObjectId(formId)) {
+    if (!mongoose.isValidObjectId(formId)) {
       return res.status(400).json({
         error: "A valid formId is required",
       });
@@ -25,8 +27,6 @@ router.post("/draft", async (req, res, next) => {
         error: "values must be an object",
       });
     }
-
-    const { FormSchema } = await import("../models/FormSchema.js");
 
     const form = await FormSchema.findById(formId).lean();
 
@@ -53,30 +53,67 @@ router.post("/draft", async (req, res, next) => {
   }
 });
 
-// -----------------------------------------
 // GET ALL SUBMISSIONS
-// -----------------------------------------
-
+// GET /api/submissions
 router.get("/", async (_req, res, next) => {
   try {
     const submissions = await Submission.find()
       .sort({ createdAt: -1 })
       .lean();
 
-    res.json(submissions);
+    return res.json(submissions);
   } catch (err) {
     next(err);
   }
 });
 
-// -----------------------------------------
-// GET ONE SUBMISSION
-// -----------------------------------------
-
-// UPDATE EXISTING SUBMISSION DRAFT
+// UPDATE EXISTING DRAFT
 // PUT /api/submissions/:id/draft
 router.put("/:id/draft", async (req, res, next) => {
-  // FINALIZE AN EXISTING DRAFT
+  try {
+    const { id } = req.params;
+    const { values } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        error: "Invalid submission ID",
+      });
+    }
+
+    if (
+      !values ||
+      typeof values !== "object" ||
+      Array.isArray(values)
+    ) {
+      return res.status(400).json({
+        error: "values must be an object",
+      });
+    }
+
+    const draft = await Submission.findOne({
+      _id: id,
+      status: "draft",
+    });
+
+    if (!draft) {
+      return res.status(404).json({
+        error: "Draft not found",
+      });
+    }
+
+    draft.values = values;
+    await draft.save();
+
+    return res.status(200).json({
+      message: "Draft updated successfully",
+      submission: draft,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// FINALIZE AN EXISTING DRAFT
 // POST /api/submissions/:id/submit
 router.post("/:id/submit", async (req, res, next) => {
   try {
@@ -144,51 +181,17 @@ router.post("/:id/submit", async (req, res, next) => {
     next(err);
   }
 });
-  try {
-    const { id } = req.params;
-    const { values } = req.body;
 
-    if (!mongoose.isValidObjectId(id)) {
+// GET ONE SUBMISSION
+// GET /api/submissions/:id
+router.get("/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({
         error: "Invalid submission ID",
       });
     }
 
-    if (
-      !values ||
-      typeof values !== "object" ||
-      Array.isArray(values)
-    ) {
-      return res.status(400).json({
-        error: "values must be an object",
-      });
-    }
-
-    const draft = await Submission.findOne({
-      _id: id,
-      status: "draft",
-    });
-
-    if (!draft) {
-      return res.status(404).json({
-        error: "Draft not found",
-      });
-    }
-
-    draft.values = values;
-    await draft.save();
-
-    return res.status(200).json({
-      message: "Draft updated successfully",
-      submission: draft,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get("/:id", async (req, res, next) => {
-  try {
     const submission = await Submission.findById(
       req.params.id
     ).lean();
@@ -199,7 +202,7 @@ router.get("/:id", async (req, res, next) => {
       });
     }
 
-    res.json(submission);
+    return res.json(submission);
   } catch (err) {
     next(err);
   }

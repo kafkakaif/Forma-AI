@@ -114,6 +114,13 @@ function DynamicForm({
   const [validationAttempted, setValidationAttempted] =
     useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [backendDraftId, setBackendDraftId] = useState(null);
+const [isSavingDraft, setIsSavingDraft] = useState(false);
+
+const backendFormId = schema?._id || schema?.formId;
+const backendDraftStorageKey = draftKey
+  ? `${draftKey}_backend_id`
+  : null;
   // =========================================================
   // WEEK 3 (POINT 1): RECEIVE EXTRACTION RESPONSE
   // =========================================================
@@ -385,10 +392,124 @@ useEffect(() => {
     draftKey,
     draftLoaded,
   ]);
+// WEEK 4: Save form progress to MongoDB
+const handleSaveProgress = async () => {
+  setIsSavingDraft(true);
+  setSubmitError("");
+  setSubmitNotice("");
+
+  try {
+    if (
+      typeof backendFormId !== "string" ||
+      !/^[a-f\d]{24}$/i.test(backendFormId)
+    ) {
+      throw new Error(
+        "Form MongoDB ID is missing. Open a form saved in MongoDB."
+      );
+    }
+
+    const savedId =
+      backendDraftId ||
+      (backendDraftStorageKey
+        ? localStorage.getItem(backendDraftStorageKey)
+        : null);
+
+    const url = savedId
+      ? `http://localhost:5000/api/submissions/${savedId}/draft`
+      : "http://localhost:5000/api/submissions/draft";
+
+    const response = await fetch(url, {
+      method: savedId ? "PUT" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        savedId
+          ? { values: formValues || {} }
+          : {
+              formId: backendFormId,
+              values: formValues || {},
+            }
+      ),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || "Unable to save progress."
+      );
+    }
+
+    const id = result.submission._id;
+
+    setBackendDraftId(id);
+
+    if (backendDraftStorageKey) {
+      localStorage.setItem(backendDraftStorageKey, id);
+    }
+
+    setSubmitNotice(
+      "Progress saved successfully. You can resume later."
+    );
+  } catch (error) {
+    setSubmitError(
+      error.message || "Unable to save progress."
+    );
+  } finally {
+    setIsSavingDraft(false);
+  }
+};
+
   /**
    * Check whether a field is visible.
    * Also supports cascading conditions.
    */
+  // WEEK 4: Resume a saved MongoDB draft
+useEffect(() => {
+  if (!backendDraftStorageKey) return;
+
+  const savedId = localStorage.getItem(backendDraftStorageKey);
+  if (!savedId) return;
+
+  let cancelled = false;
+
+  const resumeDraft = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/submissions/${savedId}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Unable to load saved draft.");
+      }
+
+      const result = await response.json();
+
+      if (cancelled) return;
+
+      if (result.status === "draft") {
+        reset(result.values || {});
+        setBackendDraftId(result._id);
+        setSubmitNotice("Saved draft restored successfully.");
+      } else {
+        localStorage.removeItem(backendDraftStorageKey);
+      }
+    } catch (error) {
+      console.error("Resume draft failed:", error);
+      if (!cancelled) {
+        setSubmitError("Unable to resume the saved draft.");
+      }
+    }
+  };
+
+  resumeDraft();
+
+  return () => {
+    cancelled = true;
+  };
+}, [backendDraftStorageKey, reset]);
+
   const isFieldVisible = useCallback(
     (field, values) => {
       if (!field.showIf) return true;
@@ -1744,6 +1865,14 @@ const missingRequiredFields = useMemo(() => {
           </div>
           {/* ACTIONS */}
           <div className="forma-form-actions">
+          <button
+  type="button"
+  className="forma-reset-btn"
+  onClick={handleSaveProgress}
+  disabled={isSavingDraft || isSubmitting}
+>
+  {isSavingDraft ? "Saving..." : "Save Progress"}
+</button>
             <button
               type="button"
               className="forma-reset-btn"
