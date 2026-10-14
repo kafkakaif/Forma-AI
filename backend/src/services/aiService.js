@@ -1,3 +1,4 @@
+
 import { ChatOllama } from "@langchain/ollama";
 import { z } from "zod";
 
@@ -62,32 +63,28 @@ const formSchema = z.object({
 
 const llm = new ChatOllama({
   model: process.env.OLLAMA_MODEL || "qwen3.5:4b",
-  baseUrl:
-    process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
+  baseUrl: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434",
   temperature: 0,
-  numCtx: 2048,
-  numPredict: 600,
+  numCtx: 4096,
+  numPredict: 1200,
   keepAlive: "10m",
   think: false,
 });
 
 // ============================================================
-// FORM GENERATION PROMPT
+// PROMPTS
 // ============================================================
 
-function buildFormPrompt(userPrompt) {
+function buildFormPrompt(userPrompt, compact = false) {
   return `
-You are Forma AI, an intelligent dynamic form generator.
-
-Convert the user's request into a practical JSON form schema.
+You are Forma AI. Create a dynamic form schema from the user's request.
 
 USER REQUEST:
 ${userPrompt}
 
-RETURN ONLY VALID JSON.
+Return ONLY one valid JSON object. Do not use Markdown or explanations.
 
-Required top-level structure:
-
+Required structure:
 {
   "title": "Form title",
   "description": "Form description",
@@ -97,209 +94,177 @@ Required top-level structure:
       "id": "fieldId",
       "label": "Field label",
       "type": "text",
-      "required": true,
-      "placeholder": "Optional placeholder"
+      "required": true
     }
   ]
 }
 
-Allowed field types:
-text
-email
-number
-textarea
-select
-radio
-checkbox
-date
+Allowed types: text, email, number, textarea, select, radio, checkbox, date.
 
 Rules:
+- Use camelCase IDs.
+- Use only the allowed field types.
+- Use email for email addresses, number for numeric values, date for dates.
+- Use textarea for long answers.
+- Use radio for yes/no questions.
+- Use select for multiple-choice questions.
+- Select and radio fields must have options as an array of objects:
+  {"label":"Yes","value":"yes"}
+- Every field must contain id, label, type, and required.
+- Use showIf only when useful. Its structure is:
+  {"field":"otherFieldId","operator":"equals","value":"yes"}
+- Supported operators: equals, notEquals, in, notIn, gt, lt, exists.
+- Keep the schema practical and avoid duplicate fields.
+- ${compact ? "Create 5 to 7 essential fields only." : "Create the important fields requested by the user."}
+- Ensure every string and array is closed correctly.
+- Do not include trailing commas.
 
-1. Create fields specifically requested by the user.
-2. Do not replace requested fields with generic "Additional Details".
-3. Use camelCase IDs.
-4. Email fields must use type "email".
-5. Years, age, amount, quantity and count must use type "number".
-6. Dates must use type "date".
-7. Long explanations must use type "textarea".
-8. Yes/no questions should use type "radio".
-9. Multiple-choice questions should use type "select".
-10. Select/radio options MUST use this exact format:
-
-"options": [
-  {
-    "label": "Option Name",
-    "value": "option_value"
-  }
-]
-
-11. Make important fields required.
-12. Add showIf only when useful.
-13. Do not output markdown.
-14. Do not output code fences.
-15. Do not output comments.
-16. Do not output explanations.
-17. Do not add trailing commas.
-
-Return only the JSON object.
+Return the completed JSON object now.
 `;
 }
-
-// ============================================================
-// EXTRACTION PROMPT
-// ============================================================
 
 function buildExtractionPrompt(text, fields) {
   return `
-You are Forma AI.
+Extract known values from the user's description and map them to the provided field IDs.
 
-Extract information from the user's text and map it to the supplied form fields.
-
-USER TEXT:
+USER DESCRIPTION:
 ${text}
 
-FORM FIELDS:
+AVAILABLE FORM FIELDS:
 ${JSON.stringify(fields)}
 
-Return ONLY valid JSON.
+Return ONLY a valid JSON object.
+Rules:
+- Use only IDs provided in AVAILABLE FORM FIELDS.
+- Do not invent values.
+- Include only values supported by the user's description.
+- Numbers must be JSON numbers.
+- Checkbox fields must be JSON booleans.
+- Dropdown and radio values must match the supplied options.
+- Leave unknown fields out of the result.
+- No Markdown, comments, or explanations.
 
 Example:
-{
-  "fullName": "Jane Doe",
-  "email": "jane@example.com",
-  "experience": 2
-}
-
-Rules:
-1. Use only field IDs provided.
-2. Do not invent information.
-3. Numbers must be JSON numbers.
-4. Return only fields for which a value can be identified.
-5. No markdown.
-6. No explanations.
-7. No code fences.
+{"fullName":"Jane Doe","experience":2}
 `;
 }
 
 // ============================================================
-// CLEAN JSON
+// JSON PARSING
 // ============================================================
 
 function cleanJsonResponse(rawContent) {
   let text = String(rawContent || "").trim();
 
-  // Remove thinking blocks
-  text = text.replace(
-    /<think>[\s\S]*?<\/think>/gi,
-    ""
-  );
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  text = text.replace(/^```(?:json)?\s*/i, "");
+  text = text.replace(/\s*```$/i, "").trim();
 
-  text = text.trim();
-
-  // Remove markdown fences
-  const fenced = text.match(
-    /```(?:json)?\s*([\s\S]*?)\s*```/i
-  );
-
-  if (fenced) {
-    text = fenced[1].trim();
-  }
-
-  // Find JSON object
   const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
 
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error("No JSON object found in Qwen response.");
+  if (firstBrace === -1) {
+    throw new Error("Qwen did not return a JSON object.");
   }
 
-  text = text.slice(firstBrace, lastBrace + 1);
+  // Parse the first complete JSON object, ignoring trailing model text.
+  let inString = false;
+  let escaped = false;
+  let depth = 0;
+  let lastBrace = -1;
 
-  // Remove trailing commas
-  text = text.replace(
-    /,\s*([}\]])/g,
-    "$1"
-  );
+  for (let i = firstBrace; i < text.length; i++) {
+    const char = text[i];
 
-  return JSON.parse(text);
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+    } else if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        lastBrace = i;
+        break;
+      }
+    }
+  }
+
+  if (lastBrace === -1) {
+    throw new Error(
+      "Qwen returned incomplete JSON. The response may have reached its token limit."
+    );
+  }
+
+  let jsonText = text.slice(firstBrace, lastBrace + 1);
+  jsonText = jsonText.replace(/,\s*([}\]])/g, "$1");
+
+  try {
+    return JSON.parse(jsonText);
+  } catch (error) {
+    throw new Error(`Malformed JSON from Qwen: ${error.message}`);
+  }
 }
 
 // ============================================================
-// NORMALIZE OPTIONS
+// NORMALIZATION
 // ============================================================
 
 function normalizeOptions(options) {
-  if (!Array.isArray(options)) {
-    return undefined;
-  }
+  if (!Array.isArray(options)) return undefined;
 
   return options.map((option) => {
-    // Qwen sometimes returns:
-    // ["Python", "Java", "React"]
     if (typeof option === "string") {
       return {
         label: option,
-        value: option
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "_")
+        value: option.toLowerCase().replace(/[^a-z0-9]+/g, "_")
           .replace(/^_+|_+$/g, ""),
       };
     }
 
-    // Already correct:
-    // { label: "Python", value: "python" }
-    return option;
+    return {
+      label: String(option?.label ?? option?.value ?? ""),
+      value: String(option?.value ?? option?.label ?? ""),
+    };
   });
 }
 
-// ============================================================
-// NORMALIZE FORM
-// ============================================================
-
 function normalizeGeneratedForm(schema) {
   return {
-    id: `ai-form-${Date.now().toString(36)}`,
-
+    id: schema.id || `ai-form-${Date.now().toString(36)}`,
     title: schema.title,
-
     description: schema.description,
-
     category: schema.category,
-
     fields: schema.fields.map((field, index) => ({
       id: field.id || `field_${index + 1}`,
-
       label: field.label,
-
       type: field.type,
-
       required: Boolean(field.required),
-
-      ...(field.placeholder
-        ? { placeholder: field.placeholder }
-        : {}),
-
-      ...(field.helpText
-        ? { helpText: field.helpText }
-        : {}),
-
+      ...(field.placeholder ? { placeholder: field.placeholder } : {}),
+      ...(field.helpText ? { helpText: field.helpText } : {}),
       ...(field.options
         ? { options: normalizeOptions(field.options) }
         : {}),
-
-      ...(field.showIf
-        ? { showIf: field.showIf }
-        : {}),
+      ...(field.showIf ? { showIf: field.showIf } : {}),
     })),
   };
 }
 
 // ============================================================
-// FALLBACK
+// FALLBACK FOR GENERATION ERRORS
 // ============================================================
 
 function createFallbackForm(prompt) {
-  const text = prompt.toLowerCase();
+  const text = String(prompt || "").toLowerCase();
 
   if (
     text.includes("vehicle") ||
@@ -310,8 +275,7 @@ function createFallbackForm(prompt) {
     return {
       id: `vehicle-insurance-${Date.now().toString(36)}`,
       title: "Vehicle Insurance Claim Form",
-      description:
-        "Submit details regarding a vehicle insurance claim.",
+      description: "Submit details regarding a vehicle insurance claim.",
       category: "Insurance",
       fields: [
         {
@@ -327,9 +291,21 @@ function createFallbackForm(prompt) {
           required: true,
         },
         {
+          id: "policyNumber",
+          label: "Policy Number",
+          type: "text",
+          required: true,
+        },
+        {
           id: "incidentDate",
-          label: "Date of Incident",
+          label: "Date of Accident",
           type: "date",
+          required: true,
+        },
+        {
+          id: "accidentLocation",
+          label: "Accident Location",
+          type: "textarea",
           required: true,
         },
         {
@@ -343,10 +319,46 @@ function createFallbackForm(prompt) {
           ],
         },
         {
+          id: "vehicleDamaged",
+          label: "Was the vehicle damaged?",
+          type: "radio",
+          required: true,
+          options: [
+            { label: "Yes", value: "yes" },
+            { label: "No", value: "no" },
+          ],
+        },
+        {
+          id: "damageSeverity",
+          label: "Damage Severity",
+          type: "select",
+          required: true,
+          showIf: {
+            field: "vehicleDamaged",
+            operator: "equals",
+            value: "yes",
+          },
+          options: [
+            { label: "Minor", value: "minor" },
+            { label: "Moderate", value: "moderate" },
+            { label: "Severe", value: "severe" },
+          ],
+        },
+        {
           id: "incidentDescription",
           label: "Describe the Incident",
           type: "textarea",
           required: true,
+        },
+        {
+          id: "hasPoliceReport",
+          label: "Police Report Filed",
+          type: "radio",
+          required: true,
+          options: [
+            { label: "Yes", value: "yes" },
+            { label: "No", value: "no" },
+          ],
         },
       ],
     };
@@ -355,8 +367,7 @@ function createFallbackForm(prompt) {
   return {
     id: `custom-form-${Date.now().toString(36)}`,
     title: "Custom Form",
-    description:
-      "A custom form generated from the user's request.",
+    description: "A basic form created after AI generation failed.",
     category: "Custom",
     fields: [
       {
@@ -364,21 +375,18 @@ function createFallbackForm(prompt) {
         label: "Full Name",
         type: "text",
         required: true,
-        placeholder: "Enter your full name",
       },
       {
         id: "email",
         label: "Email Address",
         type: "email",
         required: true,
-        placeholder: "name@example.com",
       },
       {
         id: "details",
         label: "Additional Details",
         type: "textarea",
         required: true,
-        placeholder: "Enter additional details...",
       },
     ],
   };
@@ -393,69 +401,57 @@ export async function generateFormFromPrompt(prompt) {
     throw new Error("Prompt is required.");
   }
 
-  console.log(
-    "Forma AI: sending generation request to Qwen..."
-  );
+  console.log("Forma AI: sending generation request to Qwen...");
 
-  try {
-    const response = await llm.invoke(
-      buildFormPrompt(prompt),
-      {
+  // Try the full prompt, then a compact prompt if the response is invalid.
+  for (const compact of [false, true]) {
+    try {
+      const response = await llm.invoke(buildFormPrompt(prompt, compact), {
         timeout: 120000,
+      });
+
+      const rawContent =
+        typeof response.content === "string"
+          ? response.content
+          : JSON.stringify(response.content);
+
+      console.log("Forma AI raw response:", rawContent);
+
+      const parsed = cleanJsonResponse(rawContent);
+
+      if (!Array.isArray(parsed.fields)) {
+        throw new Error("The generated schema has no fields array.");
       }
-    );
 
-    const rawContent =
-      typeof response.content === "string"
-        ? response.content
-        : JSON.stringify(response.content);
-
-    console.log(
-      "Forma AI raw response:",
-      rawContent
-    );
-
-    const parsed = cleanJsonResponse(rawContent);
-
-    // Normalize string options before Zod validation
-    if (Array.isArray(parsed.fields)) {
       parsed.fields = parsed.fields.map((field) => ({
         ...field,
-
         ...(Array.isArray(field.options)
-          ? {
-              options: normalizeOptions(
-                field.options
-              ),
-            }
+          ? { options: normalizeOptions(field.options) }
           : {}),
       }));
+
+      const validated = formSchema.parse(parsed);
+      const normalized = normalizeGeneratedForm(validated);
+
+      console.log(
+        `Forma AI: generated "${normalized.title}" with ${normalized.fields.length} fields.`
+      );
+
+      return normalized;
+    } catch (error) {
+      console.error(
+        `Form generation attempt (${compact ? "compact" : "full"}) failed:`,
+        error.message
+      );
     }
-
-    const validated = formSchema.parse(parsed);
-
-    const normalized =
-      normalizeGeneratedForm(validated);
-
-    console.log(
-      `Forma AI: Qwen generated "${normalized.title}" with ${normalized.fields.length} fields.`
-    );
-
-    return normalized;
-  } catch (error) {
-    console.error(
-      "Forma AI generation failed:",
-      error.message
-    );
-
-    throw new Error(
-      `Local AI generation failed: ${error.message}`
-    );
   }
+
+  console.warn("Qwen generation failed; returning a fallback form.");
+  return createFallbackForm(prompt);
 }
 
 // ============================================================
-// EXTRACT VALUES
+// EXTRACT VALUES FROM USER TEXT
 // ============================================================
 
 export async function extractFormValuesFromText({
@@ -471,186 +467,125 @@ export async function extractFormValuesFromText({
     throw new Error("Form fields are required.");
   }
 
-  console.log(
-    "Forma AI: sending extraction request to Qwen..."
+  console.log("Forma AI: sending extraction request to Qwen...");
+
+  const safeFields = fields.map((field) => ({
+    id: field.id,
+    label: field.label,
+    type: field.type,
+    required: Boolean(field.required),
+    options: Array.isArray(field.options) ? field.options : [],
+    validation: field.validation || {},
+  }));
+
+  const response = await llm.invoke(
+    buildExtractionPrompt(text, safeFields),
+    { timeout: 120000 }
   );
 
-  try {
-    const safeFields = fields.map((field) => ({
-  id: field.id,
-  label: field.label,
-  type: field.type,
-  required: Boolean(field.required),
-  options: Array.isArray(field.options)
-    ? field.options
-    : [],
-  validation: field.validation || {},
-}));
+  const rawContent =
+    typeof response.content === "string"
+      ? response.content
+      : JSON.stringify(response.content);
 
-    const response = await llm.invoke(
-      buildExtractionPrompt(
-        text,
-        safeFields
-      ),
-      {
-        timeout: 120000,
-      }
-    );
+  const extracted = cleanJsonResponse(rawContent);
+  const fieldMap = new Map(safeFields.map((field) => [field.id, field]));
+  const extractedData = {};
+  const validationErrors = [];
 
-    const rawContent =
-      typeof response.content === "string"
-        ? response.content
-        : JSON.stringify(response.content);
+  for (const [key, value] of Object.entries(extracted)) {
+    const field = fieldMap.get(key);
 
-    const extracted =
-      cleanJsonResponse(rawContent);
-
-    const fieldMap = new Map(
-  safeFields.map((field) => [
-    field.id,
-    field,
-  ])
-);
-
-const extractedData = {};
-const validationErrors = [];
-
-for (const [key, value] of Object.entries(extracted)) {
-  const field = fieldMap.get(key);
-
-  // Unknown field names are rejected.
-  if (!field) {
-    validationErrors.push(
-      `"${key}" is not a valid field in this form`
-    );
-    continue;
-  }
-
-  // Ignore null/undefined values.
-  if (value === null || value === undefined) {
-    continue;
-  }
-
-  switch (field.type) {
-  case "number":
-    if (
-      typeof value !== "number" ||
-      Number.isNaN(value)
-    ) {
-      validationErrors.push(
-        `"${key}" must be a number`
-      );
-      continue;
-    }
-    break;
-
-  case "checkbox":
-    if (typeof value !== "boolean") {
-      validationErrors.push(
-        `"${key}" must be true or false`
-      );
-      continue;
-    }
-    break;
-
-  case "email":
-    if (
-      typeof value !== "string" ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-    ) {
-      validationErrors.push(
-        `"${key}" must be a valid email address`
-      );
-      continue;
-    }
-    break;
-
-  case "date":
-    if (
-      typeof value !== "string" ||
-      Number.isNaN(Date.parse(value))
-    ) {
-      validationErrors.push(
-        `"${key}" must be a valid date`
-      );
-      continue;
-    }
-    break;
-
-  case "select":
-  case "radio": {
-    if (typeof value !== "string") {
-      validationErrors.push(
-        `"${key}" must be a text value`
-      );
+    if (!field) {
+      validationErrors.push(`"${key}" is not a valid field in this form`);
       continue;
     }
 
-    const options = Array.isArray(field.options)
-      ? field.options.map((option) =>
+    if (value === null || value === undefined) continue;
+
+    switch (field.type) {
+      case "number":
+        if (typeof value !== "number" || Number.isNaN(value)) {
+          validationErrors.push(`"${key}" must be a number`);
+          continue;
+        }
+        break;
+
+      case "checkbox":
+        if (typeof value !== "boolean") {
+          validationErrors.push(`"${key}" must be true or false`);
+          continue;
+        }
+        break;
+
+      case "email":
+        if (
+          typeof value !== "string" ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+        ) {
+          validationErrors.push(`"${key}" must be a valid email address`);
+          continue;
+        }
+        break;
+
+      case "date":
+        if (
+          typeof value !== "string" ||
+          Number.isNaN(Date.parse(value))
+        ) {
+          validationErrors.push(`"${key}" must be a valid date`);
+          continue;
+        }
+        break;
+
+      case "select":
+      case "radio": {
+        if (typeof value !== "string") {
+          validationErrors.push(`"${key}" must be a text value`);
+          continue;
+        }
+
+        const options = (field.options || []).map((option) =>
           typeof option === "string"
             ? option
-            : option?.value ?? option?.label ?? ""
-        )
-      : [];
+            : String(option?.value ?? option?.label ?? "")
+        );
 
-    if (
-      options.length > 0 &&
-      !options.includes(value)
-    ) {
-      validationErrors.push(
-        `"${key}" must match one of the allowed options`
-      );
-      continue;
+        if (options.length > 0 && !options.includes(value)) {
+          validationErrors.push(
+            `"${key}" must match one of the allowed options`
+          );
+          continue;
+        }
+        break;
+      }
+
+      default:
+        if (typeof value !== "string") {
+          validationErrors.push(`"${key}" must be a text value`);
+          continue;
+        }
     }
 
-    break;
+    extractedData[key] = value;
   }
 
-  default:
-    if (typeof value !== "string") {
-      validationErrors.push(
-        `"${key}" must be a text value`
-      );
-      continue;
-    }
-}
-
-  extractedData[key] = value;
-}
-
-if (validationErrors.length > 0) {
-  throw new Error(
-    `AI extraction validation failed: ${validationErrors.join(
-      "; "
-    )}`
-  );
-}
-
-const confidenceScores = {};
-
-for (const key of Object.keys(
-  extractedData
-)) {
-  confidenceScores[key] = 1;
-}
-
-return {
-  extractedData,
-  confidenceScores,
-  extractedAt:
-    new Date().toISOString(),
-  source: "local_qwen_llm",
-  formId,
-};
-  } catch (error) {
-    console.error(
-      "Forma AI extraction failed:",
-      error.message
-    );
-
+  if (validationErrors.length > 0) {
     throw new Error(
-      `Local AI extraction failed: ${error.message}`
+      `AI extraction validation failed: ${validationErrors.join("; ")}`
     );
   }
+
+  const confidenceScores = {};
+  for (const key of Object.keys(extractedData)) {
+    confidenceScores[key] = 1;
+  }
+
+  return {
+    extractedData,
+    confidenceScores,
+    extractedAt: new Date().toISOString(),
+    source: "local_qwen_llm",
+    formId,
+  };
 }

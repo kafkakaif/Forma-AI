@@ -6,6 +6,7 @@ import cors from "cors";
 import mongoose from "mongoose";
 import { connectDB } from "./config/db.js";
 import formRoutes from "./routes/formRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use(
 ); // allow the Vite app
 app.use(express.json());
 
+app.use("/api/auth", authRoutes);
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/forms", formRoutes);
 app.use("/api/submissions", submissionRoutes);

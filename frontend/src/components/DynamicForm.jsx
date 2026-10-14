@@ -3,6 +3,7 @@ import React, {
   useState,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -114,6 +115,7 @@ function DynamicForm({
   const [validationAttempted, setValidationAttempted] =
     useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const skipNextDraftSave = useRef(false);
   const [backendDraftId, setBackendDraftId] = useState(null);
 const [isSavingDraft, setIsSavingDraft] = useState(false);
 
@@ -358,6 +360,17 @@ useEffect(() => {
    */
   useEffect(() => {
     if (!draftKey || !draftLoaded) return;
+    if (skipNextDraftSave.current) {
+  skipNextDraftSave.current = false;
+
+  localStorage.removeItem(draftKey);
+
+  if (backendDraftStorageKey) {
+    localStorage.removeItem(backendDraftStorageKey);
+  }
+
+  return;
+}
     const values = formValues || {};
     const hasValues = Object.values(values).some((value) => {
       if (Array.isArray(value)) {
@@ -668,10 +681,28 @@ const missingRequiredFields = useMemo(() => {
         result
       );
       setSubmittedData(cleanData);
-      if (draftKey) {
-        localStorage.removeItem(draftKey);
-      }
-      setSubmitNotice("Submitted directly to backend MongoDB successfully!");
+
+// Remove saved draft data so it cannot be restored after submission.
+if (draftKey) {
+  localStorage.removeItem(draftKey);
+}
+
+if (backendDraftStorageKey) {
+  localStorage.removeItem(backendDraftStorageKey);
+}
+
+setBackendDraftId(null);
+
+// Clear form values while preserving the submission preview.
+reset({});
+
+setAiFilledFields({});
+setReceivedExtraction(null);
+setMappingResult(null);
+setValuesAppliedWithSetValue(false);
+setAppliedFieldsCount(0);
+
+setSubmitNotice("Submitted directly to backend MongoDB successfully!");
       if (onSubmitSuccess) {
         onSubmitSuccess(cleanData);
       }
@@ -709,16 +740,38 @@ const missingRequiredFields = useMemo(() => {
    * Reset form
    */
   const handleFormReset = () => {
-    reset();
-    if (draftKey) {
-      localStorage.removeItem(draftKey);
-    }
-    setSubmittedData(null);
-    setSubmitError("");
-    setSubmitNotice("");
-    setValidationAttempted(false);
-    setAiFilledFields({});
-  };
+  skipNextDraftSave.current = true;
+
+  reset(
+    Object.fromEntries(
+      flatFields.map((field) => [field.id || field.name, ""])
+    )
+  );
+
+  if (draftKey) {
+    localStorage.removeItem(draftKey);
+  }
+
+  if (backendDraftStorageKey) {
+    localStorage.removeItem(backendDraftStorageKey);
+  }
+
+  setBackendDraftId(null);
+  setSubmittedData(null);
+  setSubmitError("");
+  setSubmitNotice("");
+  setValidationAttempted(false);
+
+  setReceivedExtraction(null);
+  setMappingResult(null);
+  setValuesAppliedWithSetValue(false);
+  setAppliedFieldsCount(0);
+  setAiFilledFields({});
+  setExtractionInputText("");
+  setRawJsonInput("");
+  setExtractionError("");
+  setShowRawJsonPayload(false);
+};
   /**
    * Empty schema state
    */

@@ -270,7 +270,28 @@ export async function requestExtraction({ text, schema = null, formId = null, si
   schema?.formId ||
   schema?.id ||
   schema?.slug,
-        fields: schema?.fields?.map((f) => ({ id: f.id || f.name, label: f.label, type: f.type })) || [],
+        fields: (() => {
+  const fields = Array.isArray(schema?.fields)
+    ? schema.fields
+    : (schema?.sections || []).flatMap((section) =>
+        (section.fields || []).map((field) => ({
+          ...field,
+          showIf: field.showIf || section.showIf || null,
+        }))
+      );
+
+  return fields.map((f) => ({
+    id: f.id || f.name,
+    label: f.label,
+    type: f.type,
+    options: (f.options || []).map((option) =>
+      typeof option === "object"
+        ? { label: option.label, value: option.value }
+        : { label: String(option), value: option }
+    ),
+    showIf: f.showIf || null,
+  }));
+})(),
       }),
       signal,
     });
