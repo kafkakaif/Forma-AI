@@ -35,18 +35,10 @@
 .sidebar-logo {
   width: 36px;
   height: 36px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
+  display: block;
   border-radius: 10px;
-
-  background: var(--primary);
-  color: white;
-
-  font-size: 18px;
-  font-weight: 700;
+  object-fit: contain;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
 }
 .sidebar-main-nav {
   padding: 20px 14px;

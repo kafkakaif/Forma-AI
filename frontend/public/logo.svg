@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <!-- Background Gradient: Indigo to Vibrant Violet -->
+    <linearGradient id="forma-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="45%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+
+    <!-- Glass Surface Highlight -->
+    <linearGradient id="glass-shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25" />
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- AI Sparkle Vibrant Gradient -->
+    <linearGradient id="ai-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#F472B6" />
+    </linearGradient>
+
+    <!-- Soft Drop Shadow for Depth -->
+    <filter id="icon-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" flood-color="#0F172A" flood-opacity="0.35" />
+    </filter>
+
+    <!-- Glow for AI Sparkle -->
+    <filter id="ai-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#38BDF8" flood-opacity="0.7" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base Container -->
+  <rect x="0" y="0" width="64" height="64" rx="16" fill="url(#forma-gradient)" />
+
+  <!-- Inner Glass Shine Overlay -->
+  <rect x="1" y="1" width="62" height="31" rx="15" fill="url(#glass-shine)" />
+
+  <!-- Subtle Rim Light Border -->
+  <rect x="1" y="1" width="62" height="62" rx="15" fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1.5" />
+
+  <!-- Monogram "F" for Forma -->
+  <path
+    d="M 19.5 14 L 38.5 14 A 4.5 4.5 0 0 1 43 18.5 A 4.5 4.5 0 0 1 38.5 23 L 24 23 L 24 27 L 31.5 27 A 4.25 4.25 0 0 1 35.75 31.25 A 4.25 4.25 0 0 1 31.5 35.5 L 24 35.5 L 24 45.5 A 4.5 4.5 0 0 1 19.5 50 A 4.5 4.5 0 0 1 15 45.5 L 15 18.5 A 4.5 4.5 0 0 1 19.5 14 Z"
+    fill="#FFFFFF"
+    filter="url(#icon-shadow)"
+  />
+
+  <!-- Subtle Inset Highlight on the F -->
+  <path
+    d="M 19.5 14 L 38.5 14 A 4.5 4.5 0 0 1 43 18.5"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="1"
+    stroke-linecap="round"
+    opacity="0.6"
+  />
+
+  <!-- AI Sparkle Star (✦) for Forma AI -->
+  <g filter="url(#ai-glow)">
+    <path
+      d="M 45 35 Q 45 43 53 43 Q 45 43 45 51 Q 45 43 37 43 Q 45 43 45 35 Z"
+      fill="url(#ai-gradient)"
+    />
+    <circle cx="45" cy="43" r="1.5" fill="#FFFFFF" opacity="0.95" />
+  </g>
+
+  <!-- Micro Twinkle Star Accent -->
+  <path
+    d="M 53 26 Q 53 29 56 29 Q 53 29 53 32 Q 53 29 50 29 Q 53 29 53 26 Z"
+    fill="#E0E7FF"
+    opacity="0.85"
+  />
+</svg>

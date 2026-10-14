@@ -137,7 +137,7 @@ const Signup = () => {
       {/* LEFT SIDE */}
       <div className="auth-visual">
         <div className="auth-brand">
-          <div className="auth-logo">F</div>
+          <img src="/favicon.svg" alt="Forma AI Logo" className="auth-logo" />
           <span>Forma AI</span>
         </div>
 
@@ -193,7 +193,7 @@ const Signup = () => {
       <div className="auth-form-section">
         <div className="auth-form-container">
           <div className="mobile-brand">
-            <div className="auth-logo">F</div>
+            <img src="/favicon.svg" alt="Forma AI Logo" className="auth-logo" />
             <span>Forma AI</span>
           </div>
 

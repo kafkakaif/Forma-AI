@@ -22,9 +22,11 @@ const Sidebar = () => {
       {/* BRAND */}
 
       <div className="brand">
-        <div className="brand-logo">
-          F
-        </div>
+        <img
+          src="/favicon.svg"
+          alt="Forma AI Logo"
+          className="brand-logo"
+        />
 
         <span>Forma AI</span>
       </div>

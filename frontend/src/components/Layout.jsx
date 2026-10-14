@@ -33,7 +33,7 @@ const Layout = () => {
 
         {/* BRAND */}
         <div className="sidebar-brand">
-          <div className="sidebar-logo">F</div>
+          <img src="/favicon.svg" alt="Forma AI Logo" className="sidebar-logo" />
           <span>Forma AI</span>
         </div>
 
