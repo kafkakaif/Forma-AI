@@ -23,6 +23,7 @@ import Submissions from "./pages/Submissions";
 import Layout from "./components/Layout";
 import AIInput from "./pages/AIInput";
 import GeneratedForm from "./pages/GeneratedForm";
+import Landing from "./pages/Landing";
 
 import "./App.css";
 
@@ -139,24 +140,28 @@ function App() {
         </Route>
 
         {/* =====================================================
-            DEFAULT ROUTES
+            PUBLIC LANDING PAGE
         ====================================================== */}
 
         <Route
           path="/"
-          element={
-            <Navigate
-              to="/login"
-              replace
-            />
-          }
+          element={<Landing />}
         />
+
+        <Route
+          path="/landing"
+          element={<Landing />}
+        />
+
+        {/* =====================================================
+            DEFAULT ROUTES
+        ====================================================== */}
 
         <Route
           path="*"
           element={
             <Navigate
-              to="/login"
+              to="/"
               replace
             />
           }
