@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -46,6 +47,18 @@ function ProtectedLayout() {
 }
 
 function App() {
+  useEffect(() => {
+    try {
+      const savedSettings = localStorage.getItem("forma_settings");
+      let currentTheme = localStorage.getItem("forma_theme") || "light";
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        if (parsed.theme) currentTheme = parsed.theme;
+      }
+      document.documentElement.setAttribute("data-theme", currentTheme);
+    } catch (e) {}
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

@@ -6,6 +6,23 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Forma AI</title>
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem("forma_settings");
+        var t = localStorage.getItem("forma_theme");
+        if (s) {
+          var p = JSON.parse(s);
+          if (p.theme) t = p.theme;
+        }
+        if (t === "dark") {
+          document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body>

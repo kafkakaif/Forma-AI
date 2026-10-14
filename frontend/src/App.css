@@ -19,6 +19,7 @@
   
   --bg-page: #f6f7ff;
   --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
   --border-light: #e2e8f0;
   --border-hover: #cbd5e1;
   
@@ -26,6 +27,35 @@
   --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
   --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.05);
   --shadow-glow: 0 0 24px rgba(79, 70, 229, 0.22);
+}
+
+[data-theme="dark"] {
+  --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --primary: #6366f1;
+  --primary-hover: #818cf8;
+  --primary-light: rgba(99, 102, 241, 0.16);
+  --primary-glow: rgba(99, 102, 241, 0.35);
+  --accent-purple: #8b5cf6;
+  --accent-blue: #3b82f6;
+  --accent-cyan: #22d3ee;
+  --accent-emerald: #10b981;
+  --accent-amber: #fbbf24;
+  --accent-rose: #fb7185;
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  
+  --bg-page: #0a0e17;
+  --bg-card: #111827;
+  --bg-card-hover: #1e293b;
+  --border-light: #1f2a3d;
+  --border-hover: #334155;
+  
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.45), 0 2px 6px -1px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.6), 0 4px 10px -2px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.35);
 }
 
 * {
@@ -107,4 +137,97 @@ button, input, select, textarea {
 .forma-toast svg {
   color: #818cf8;
   flex-shrink: 0;
+}
+
+/* Global transitions for theme switching */
+body,
+.app-layout,
+.app-sidebar,
+.settings-card,
+.settings-sidebar,
+.theme-card,
+.dashboard-stat,
+.quick-card,
+.template-card,
+.form-card,
+.profile-card {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Dark Theme Global UI Elements */
+[data-theme="dark"] body {
+  background-color: var(--bg-page);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .dashboard-page,
+[data-theme="dark"] .templates-page,
+[data-theme="dark"] .submissions-page,
+[data-theme="dark"] .myforms-page,
+[data-theme="dark"] .profile-page,
+[data-theme="dark"] .ai-input-page,
+[data-theme="dark"] .analytics-page {
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .dashboard-stat,
+[data-theme="dark"] .quick-card,
+[data-theme="dark"] .template-card,
+[data-theme="dark"] .form-card,
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .search-input-box,
+[data-theme="dark"] .templates-filter-tabs,
+[data-theme="dark"] .submissions-stat,
+[data-theme="dark"] .submissions-table-wrap,
+[data-theme="dark"] .empty-dashboard-card,
+[data-theme="dark"] .analytics-stat-card,
+[data-theme="dark"] .analytics-chart-card {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-light) !important;
+  color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .dashboard-stat strong,
+[data-theme="dark"] .quick-card strong,
+[data-theme="dark"] .section-heading-row h2,
+[data-theme="dark"] .dashboard-header h1,
+[data-theme="dark"] .templates-header h1,
+[data-theme="dark"] .submissions-header h1,
+[data-theme="dark"] .profile-header h1 {
+  color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .ai-banner {
+  background: linear-gradient(135deg, #131b2e, #182239) !important;
+  border-color: var(--border-light) !important;
+}
+
+[data-theme="dark"] .dashboard-stat-icon,
+[data-theme="dark"] .quick-icon {
+  background: var(--primary-light) !important;
+  color: var(--primary) !important;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: #0b0f19;
+  border-color: var(--border-light);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--text-subtle);
+}
+
+[data-theme="dark"] table th {
+  background-color: #0d1424 !important;
+  color: var(--text-muted) !important;
+  border-bottom-color: var(--border-light) !important;
+}
+
+[data-theme="dark"] table td {
+  border-bottom-color: var(--border-light) !important;
+  color: var(--text-main) !important;
 }

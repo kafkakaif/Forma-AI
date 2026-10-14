@@ -50,7 +50,22 @@ const Settings = () => {
     useState(false);
 
   const [theme, setTheme] =
-    useState("light");
+    useState(() => {
+      try {
+        const savedSettings = localStorage.getItem("forma_settings");
+        if (savedSettings) {
+          const parsed = JSON.parse(savedSettings);
+          if (parsed.theme) return parsed.theme;
+        }
+        return localStorage.getItem("forma_theme") || DEFAULT_SETTINGS.theme;
+      } catch (e) {
+        return DEFAULT_SETTINGS.theme;
+      }
+    });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   const [preferences, setPreferences] =
     useState({
@@ -163,10 +178,13 @@ const Settings = () => {
           DEFAULT_SETTINGS.twoFactor
       );
 
-      setTheme(
+      const currentTheme =
         settings.theme ||
-          DEFAULT_SETTINGS.theme
-      );
+        localStorage.getItem("forma_theme") ||
+        DEFAULT_SETTINGS.theme;
+
+      setTheme(currentTheme);
+      document.documentElement.setAttribute("data-theme", currentTheme);
 
       setPreferences({
         language:
@@ -473,6 +491,8 @@ const Settings = () => {
 
   const changeTheme = (nextTheme) => {
     setTheme(nextTheme);
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    localStorage.setItem("forma_theme", nextTheme);
 
     saveSettings({
       theme: nextTheme,
@@ -1253,19 +1273,7 @@ const Settings = () => {
 
       {showPasswordModal && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background:
-              "rgba(15, 23, 42, 0.45)",
-            display: "flex",
-            alignItems:
-              "center",
-            justifyContent:
-              "center",
-            padding: 20,
-            zIndex: 1000,
-          }}
+          className="settings-modal-overlay"
           onClick={() =>
             setShowPasswordModal(
               false
@@ -1273,49 +1281,18 @@ const Settings = () => {
           }
         >
           <div
-            style={{
-              width: "100%",
-              maxWidth: 450,
-              background:
-                "#ffffff",
-              borderRadius: 14,
-              padding: 24,
-              boxShadow:
-                "0 20px 40px rgba(0,0,0,0.15)",
-            }}
+            className="settings-modal"
             onClick={(e) =>
               e.stopPropagation()
             }
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems:
-                  "center",
-                marginBottom: 22,
-              }}
-            >
+            <div className="settings-modal-header">
               <div>
-                <h2
-                  style={{
-                    margin:
-                      "0 0 5px",
-                  }}
-                >
+                <h2>
                   Change Password
                 </h2>
 
-                <p
-                  style={{
-                    margin: 0,
-                    color:
-                      "#7a8494",
-                    fontSize:
-                      13,
-                  }}
-                >
+                <p>
                   Update your
                   account password.
                 </p>
@@ -1323,20 +1300,12 @@ const Settings = () => {
 
               <button
                 type="button"
+                className="settings-modal-close-btn"
                 onClick={() =>
                   setShowPasswordModal(
                     false
                   )
                 }
-                style={{
-                  border: "none",
-                  background:
-                    "transparent",
-                  cursor:
-                    "pointer",
-                  color:
-                    "#64748b",
-                }}
               >
                 <X size={19} />
               </button>
@@ -1519,59 +1488,25 @@ const Settings = () => {
               </label>
             </div>
 
-            <div
-              style={{
-                display:
-                  "flex",
-                justifyContent:
-                  "flex-end",
-                gap: 10,
-                marginTop: 22,
-              }}
-            >
+            <div className="settings-modal-actions">
               <button
                 type="button"
+                className="settings-modal-cancel-btn"
                 onClick={() =>
                   setShowPasswordModal(
                     false
                   )
                 }
-                style={{
-                  padding:
-                    "10px 15px",
-                  border:
-                    "1px solid #dfe3ea",
-                  borderRadius: 8,
-                  background:
-                    "#ffffff",
-                  cursor:
-                    "pointer",
-                  fontWeight:
-                    600,
-                }}
               >
                 Cancel
               </button>
 
               <button
                 type="button"
+                className="settings-modal-submit-btn"
                 onClick={
                   changePassword
                 }
-                style={{
-                  padding:
-                    "10px 15px",
-                  border: "none",
-                  borderRadius: 8,
-                  background:
-                    "#4f46e5",
-                  color:
-                    "#ffffff",
-                  cursor:
-                    "pointer",
-                  fontWeight:
-                    600,
-                }}
               >
                 Update Password
               </button>
