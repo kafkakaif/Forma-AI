@@ -1,6 +1,28 @@
-# Forma AI
+<p align="center">
+  <img src="https://img.shields.io/badge/Frontend-React-blue?logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Backend-Node.js-green?logo=node.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/Database-MongoDB-darkgreen?logo=mongodb&logoColor=white" />
+  <img src="https://img.shields.io/badge/AI-LangChain-orange" />
+  <img src="https://img.shields.io/badge/WebApp-React-blueviolet?logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Status-Active-brightgreen?logo=github" />
+</p>
 
-An AI-assisted dynamic form platform for creating, completing, and managing forms. Describe a form in plain language to generate its structure, then use conditional questions and validation to guide submissions.
+<p align="center">
+  <i>"Turning complex forms into intelligent, conversational workflows."</i>
+</p>
+
+---
+
+## 📌 Overview
+
+**Forma AI** is an AI-powered dynamic form engine designed to simplify complex and branching forms used in domains such as **Insurance, Healthcare, Finance, and Enterprise Workflow Automation**.
+
+Instead of forcing users to manually complete dozens of form fields, Forma AI allows them to describe their situation using natural language.
+
+The system uses an **LLM to extract structured information** from the user's description and automatically populates the corresponding fields in a dynamically generated React form.
+
+---
+
 
 ## Features
 
